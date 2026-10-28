@@ -1,1 +1,9 @@
-{"name":"yahtzee","version":"1.0.0","private":true,"scripts":{"test":"node --test 'test/*.test.js'"}}
+{
+  "name": "yahtzee",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node server/server.js",
+    "test": "node --test 'test/*.test.js'"
+  }
+}

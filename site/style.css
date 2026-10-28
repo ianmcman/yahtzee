@@ -713,3 +713,232 @@ body {
     min-width: 160px;
   }
 }
+
+
+/* === Online Multiplayer Styles === */
+.online-card {
+  margin-top: 20px;
+}
+
+.error-msg {
+  color: var(--danger-color);
+  font-size: 0.9rem;
+  margin-top: 10px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.screen-nav-bar {
+  margin-bottom: 16px;
+}
+
+.online-prompt-banner {
+  background-color: var(--accent-soft);
+  border: 1px solid var(--accent-color);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  margin-bottom: 16px;
+  font-size: 0.95rem;
+  color: var(--text-main);
+  font-weight: 600;
+  text-align: center;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-label {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--text-main);
+}
+
+.form-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background-color: var(--surface-raised);
+  color: var(--text-main);
+  font-size: 1rem;
+  font-family: inherit;
+  transition: border-color 0.15s ease;
+}
+
+.form-input:focus {
+  border-color: var(--accent-color);
+  outline: none;
+}
+
+.code-input {
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-weight: 700;
+  font-family: monospace;
+  text-align: center;
+}
+
+.online-actions-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+@media (min-width: 600px) {
+  .online-actions-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.online-action-box {
+  background-color: var(--surface-raised);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.action-box-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.action-box-desc {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+  flex-grow: 1;
+}
+
+.join-input-group {
+  display: flex;
+  gap: 8px;
+}
+
+.join-input-group .code-input {
+  flex: 1;
+}
+
+/* === Lobby Screen Styles === */
+.lobby-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.room-code-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  background-color: var(--accent-soft);
+  color: var(--accent-color);
+  border-radius: var(--radius-sm);
+  font-family: monospace;
+  letter-spacing: 2px;
+  font-weight: 800;
+}
+
+.copy-status-msg {
+  font-size: 0.85rem;
+  color: var(--success-color);
+  min-height: 1.2rem;
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+.lobby-players-section {
+  margin: 16px 0 20px;
+}
+
+.lobby-player-list {
+  list-style: none;
+  margin: 10px 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lobby-player-item {
+  padding: 10px 14px;
+  background-color: var(--surface-raised);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 600;
+}
+
+.lobby-host-badge {
+  font-size: 0.75rem;
+  background-color: var(--accent-soft);
+  color: var(--accent-color);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  margin-left: 8px;
+}
+
+.lobby-you-badge {
+  font-size: 0.75rem;
+  background-color: rgba(63, 185, 80, 0.15);
+  color: var(--success-color);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  margin-left: 8px;
+}
+
+.waiting-text {
+  color: var(--text-muted);
+  font-style: italic;
+  text-align: center;
+  padding: 12px;
+}
+
+.lobby-controls {
+  margin-bottom: 16px;
+}
+
+.lobby-footer {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* === Reconnecting Indicator === */
+.reconnecting-badge {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  background-color: #d97706;
+  color: #ffffff;
+  padding: 6px 14px;
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  animation: pulse-reconnect 1.5s infinite;
+}
+
+@keyframes pulse-reconnect {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}

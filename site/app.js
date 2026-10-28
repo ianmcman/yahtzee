@@ -26,9 +26,15 @@
   // Application State
   let game = null;
   let isRollingAnimation = false;
+  let isOnlineMode = false;
+  let onlineView = null;
+  let onOnlineAction = null;
+  let onOnlineLeave = null;
 
   // DOM Elements
   const screenStart = document.getElementById('screen-start');
+  const screenOnline = document.getElementById('screen-online');
+  const screenLobby = document.getElementById('screen-lobby');
   const screenGame = document.getElementById('screen-game');
   const screenEnd = document.getElementById('screen-end');
 
@@ -57,13 +63,14 @@
   const standingsBody = document.getElementById('standings-body');
   const btnPlayAgain = document.getElementById('btn-play-again');
   const btnNewGameSetup = document.getElementById('btn-new-game-setup');
+  const btnOnlineLeaveGame = document.getElementById('btn-online-leave-game');
 
   // --- LocalStorage Helpers ---
   function safeGetStorage(key) {
     try {
       const data = localStorage.getItem(key);
       return data ? JSON.parse(data) : null;
-    } catch (e) {
+    } catch {
       return null;
     }
   }
@@ -71,7 +78,7 @@
   function safeSetStorage(key, value) {
     try {
       localStorage.setItem(key, JSON.stringify(value));
-    } catch (e) {
+    } catch {
       // Ignore quota or privacy exceptions
     }
   }
@@ -79,12 +86,13 @@
   function safeRemoveStorage(key) {
     try {
       localStorage.removeItem(key);
-    } catch (e) {
+    } catch {
       // Ignore
     }
   }
 
   function saveCurrentGameState() {
+    if (isOnlineMode) return;
     if (game && !window.YahtzeeGame.isOver(game)) {
       safeSetStorage(STORAGE_KEYS.SAVED_GAME, game);
     } else {
@@ -95,6 +103,8 @@
   // --- Screen Switching ---
   function showScreen(screen) {
     screenStart.hidden = screen !== 'start';
+    if (screenOnline) screenOnline.hidden = screen !== 'online';
+    if (screenLobby) screenLobby.hidden = screen !== 'lobby';
     screenGame.hidden = screen !== 'game';
     screenEnd.hidden = screen !== 'end';
   }
@@ -195,40 +205,53 @@
 
   // --- Game Rendering ---
   function renderGame() {
-    if (!game) return;
+    const curGame = isOnlineMode ? (onlineView && onlineView.game) : game;
+    if (!curGame) return;
 
-    const curPlayer = game.players[game.current];
+    const curPlayer = curGame.players[curGame.current];
+    const isMyTurn = isOnlineMode ? (onlineView.you === curGame.current) : true;
+
     currentPlayerNameEl.textContent = curPlayer.name;
+    btnQuitGame.textContent = isOnlineMode ? 'Leave Room' : 'New Game';
 
     // Rolls Left and Roll button
-    rollsLeftCountEl.textContent = game.rollsLeft;
-    if (game.rollsLeft === 0) {
+    rollsLeftCountEl.textContent = curGame.rollsLeft;
+
+    if (!isMyTurn) {
       btnRoll.disabled = true;
-      btnRoll.textContent = 'No rolls left (Score a category)';
-      rollInstructionEl.textContent = 'Choose a category to score.';
-    } else if (game.rollsLeft === 3) {
-      btnRoll.disabled = isRollingAnimation;
-      btnRoll.innerHTML = `Roll (<span id="rolls-left-count">${game.rollsLeft}</span> left)`;
-      rollInstructionEl.textContent = 'Roll the dice to start your turn.';
+      btnRoll.textContent = `Waiting for ${curPlayer.name}…`;
+      rollInstructionEl.textContent = `Waiting for ${curPlayer.name} to take their turn.`;
+      statusMessageEl.textContent = `Waiting for ${curPlayer.name}…`;
     } else {
-      btnRoll.disabled = isRollingAnimation;
-      btnRoll.innerHTML = `Roll (<span id="rolls-left-count">${game.rollsLeft}</span> left)`;
-      rollInstructionEl.textContent = 'Tap dice to keep or re-roll, or choose a category.';
+      statusMessageEl.textContent = '';
+      if (curGame.rollsLeft === 0) {
+        btnRoll.disabled = true;
+        btnRoll.textContent = 'No rolls left (Score a category)';
+        rollInstructionEl.textContent = 'Choose a category to score.';
+      } else if (curGame.rollsLeft === 3) {
+        btnRoll.disabled = isRollingAnimation;
+        btnRoll.innerHTML = `Roll (<span id="rolls-left-count">${curGame.rollsLeft}</span> left)`;
+        rollInstructionEl.textContent = 'Roll the dice to start your turn.';
+      } else {
+        btnRoll.disabled = isRollingAnimation;
+        btnRoll.innerHTML = `Roll (<span id="rolls-left-count">${curGame.rollsLeft}</span> left)`;
+        rollInstructionEl.textContent = 'Tap dice to keep or re-roll, or choose a category.';
+      }
     }
 
     // Render Dice
     diceContainer.innerHTML = '';
     for (let i = 0; i < 5; i++) {
-      const val = game.dice[i] || 1;
-      const isHeld = Boolean(game.held[i]);
+      const val = curGame.dice[i] || 1;
+      const isHeld = Boolean(curGame.held[i]);
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = `die-btn ${isHeld ? 'is-held' : ''}`;
       btn.setAttribute('data-index', i);
       btn.setAttribute('aria-pressed', isHeld ? 'true' : 'false');
 
-      // Cannot hold before rolling or when 0 rolls left or during animation
-      const canHold = game.rollsLeft < 3 && game.rollsLeft > 0 && !isRollingAnimation;
+      // Cannot hold before rolling or when 0 rolls left or during animation or when not your turn
+      const canHold = isMyTurn && curGame.rollsLeft < 3 && curGame.rollsLeft > 0 && !isRollingAnimation;
       btn.disabled = !canHold;
 
       const heldLabel = isHeld ? 'held' : 'not held';
@@ -241,9 +264,13 @@
 
       btn.addEventListener('click', () => {
         if (!canHold) return;
-        window.YahtzeeGame.toggleHold(game, i);
-        saveCurrentGameState();
-        renderGame();
+        if (isOnlineMode) {
+          if (onOnlineAction) onOnlineAction({ type: 'hold', index: i });
+        } else {
+          window.YahtzeeGame.toggleHold(game, i);
+          saveCurrentGameState();
+          renderGame();
+        }
       });
 
       diceContainer.appendChild(btn);
@@ -253,12 +280,17 @@
   }
 
   function renderScorecard() {
+    const curGame = isOnlineMode ? (onlineView && onlineView.game) : game;
+    if (!curGame) return;
+
+    const isMyTurn = isOnlineMode ? (onlineView.you === curGame.current) : true;
+
     // Render Header
     scorecardHeadRow.innerHTML = '<th scope="col" class="col-category">Category</th>';
-    game.players.forEach((player, idx) => {
+    curGame.players.forEach((player, idx) => {
       const th = document.createElement('th');
       th.scope = 'col';
-      const isCurrent = idx === game.current;
+      const isCurrent = idx === curGame.current;
       if (isCurrent) {
         th.classList.add('col-current');
         th.setAttribute('aria-current', 'true');
@@ -280,37 +312,37 @@
     // Upper Categories
     const upperCats = CATEGORIES_INFO.filter(c => c.section === 'upper');
     upperCats.forEach(cat => {
-      scorecardBody.appendChild(createCategoryRow(cat));
+      scorecardBody.appendChild(createCategoryRow(cat, curGame, isMyTurn));
     });
 
     // Upper Subtotal Row
     scorecardBody.appendChild(createSummaryRow('Upper Subtotal', (card) => {
       return window.YahtzeeScore.totals(card).upper;
-    }, 'row-subtotal'));
+    }, 'row-subtotal', curGame));
 
     // Upper Bonus Row
     scorecardBody.appendChild(createSummaryRow('Upper Bonus (63+)', (card) => {
       return window.YahtzeeScore.totals(card).bonus;
-    }, 'row-bonus'));
+    }, 'row-bonus', curGame));
 
     // Lower Categories
     const lowerCats = CATEGORIES_INFO.filter(c => c.section === 'lower');
     lowerCats.forEach(cat => {
-      scorecardBody.appendChild(createCategoryRow(cat));
+      scorecardBody.appendChild(createCategoryRow(cat, curGame, isMyTurn));
     });
 
     // Yahtzee Bonus Row
     scorecardBody.appendChild(createSummaryRow('Yahtzee Bonus', (card) => {
       return (card.yahtzeeBonus || 0) * 100;
-    }, 'row-bonus'));
+    }, 'row-bonus', curGame));
 
     // Grand Total Row
     scorecardBody.appendChild(createSummaryRow('Grand Total', (card) => {
       return window.YahtzeeScore.totals(card).total;
-    }, 'row-grand-total'));
+    }, 'row-grand-total', curGame));
   }
 
-  function createCategoryRow(cat) {
+  function createCategoryRow(cat, curGame, isMyTurn) {
     const tr = document.createElement('tr');
 
     const th = document.createElement('th');
@@ -319,9 +351,9 @@
     th.textContent = cat.name;
     tr.appendChild(th);
 
-    game.players.forEach((player, pIdx) => {
+    curGame.players.forEach((player, pIdx) => {
       const td = document.createElement('td');
-      const isCurrent = pIdx === game.current;
+      const isCurrent = pIdx === curGame.current;
       if (isCurrent) {
         td.classList.add('col-current');
       }
@@ -332,25 +364,29 @@
         td.innerHTML = `<span class="score-used">${scoreVal}</span>`;
       } else if (isCurrent) {
         // Open category for current player
-        if (game.rollsLeft === 3 || isRollingAnimation) {
-          // Must roll first
+        if (curGame.rollsLeft === 3 || isRollingAnimation || !isMyTurn) {
+          // Must roll first or rolling or not player's turn
           const btn = document.createElement('button');
           btn.type = 'button';
           btn.className = 'btn-score-disabled';
           btn.disabled = true;
           btn.textContent = '—';
-          btn.setAttribute('aria-label', `${cat.name}: roll dice first to score`);
+          btn.setAttribute('aria-label', `${cat.name}: not available`);
           td.appendChild(btn);
         } else {
-          // Has rolled: show potential score as button
-          const potentialScore = window.YahtzeeScore.scoreCategory(cat.id, game.dice);
+          // Has rolled & is current player's turn: show potential score as button
+          const potentialScore = window.YahtzeeScore.scoreCategory(cat.id, curGame.dice);
           const btn = document.createElement('button');
           btn.type = 'button';
           btn.className = 'btn-score-available';
           btn.textContent = String(potentialScore);
           btn.setAttribute('aria-label', `Score ${potentialScore} in ${cat.name}`);
           btn.addEventListener('click', () => {
-            handleScoreCategory(cat.id);
+            if (isOnlineMode) {
+              if (onOnlineAction) onOnlineAction({ type: 'score', category: cat.id });
+            } else {
+              handleScoreCategory(cat.id);
+            }
           });
           td.appendChild(btn);
         }
@@ -365,7 +401,7 @@
     return tr;
   }
 
-  function createSummaryRow(title, getValueFn, rowClass) {
+  function createSummaryRow(title, getValueFn, rowClass, curGame) {
     const tr = document.createElement('tr');
     if (rowClass) tr.className = rowClass;
 
@@ -375,9 +411,9 @@
     th.textContent = title;
     tr.appendChild(th);
 
-    game.players.forEach((player, pIdx) => {
+    curGame.players.forEach((player, pIdx) => {
       const td = document.createElement('td');
-      if (pIdx === game.current) {
+      if (pIdx === curGame.current) {
         td.classList.add('col-current');
       }
       td.textContent = String(getValueFn(player.card));
@@ -401,7 +437,7 @@
       return;
     }
 
-    // Roll animation (300 ms <= 400 ms)
+    // Roll animation (300 ms)
     isRollingAnimation = true;
     btnRoll.disabled = true;
 
@@ -411,7 +447,8 @@
     const interval = setInterval(() => {
       dieButtons.forEach(btn => {
         const rand = Math.floor(Math.random() * 6) + 1;
-        btn.querySelector('.die-face').outerHTML = getDieSvg(rand);
+        const face = btn.querySelector('.die-face');
+        if (face) face.outerHTML = getDieSvg(rand);
       });
     }, 60);
 
@@ -452,9 +489,20 @@
 
   // --- End Screen Logic ---
   function renderEndScreen() {
-    if (!game) return;
+    const curGame = isOnlineMode ? (onlineView && onlineView.game) : game;
+    if (!curGame) return;
 
-    const playersWithTotals = game.players.map(p => ({
+    if (isOnlineMode) {
+      btnPlayAgain.hidden = true;
+      btnNewGameSetup.hidden = true;
+      if (btnOnlineLeaveGame) btnOnlineLeaveGame.hidden = false;
+    } else {
+      btnPlayAgain.hidden = false;
+      btnNewGameSetup.hidden = false;
+      if (btnOnlineLeaveGame) btnOnlineLeaveGame.hidden = true;
+    }
+
+    const playersWithTotals = curGame.players.map(p => ({
       name: p.name,
       totals: window.YahtzeeScore.totals(p.card)
     }));
@@ -547,18 +595,32 @@
     });
 
     // Roll Button
-    btnRoll.addEventListener('click', handleRoll);
-
-    // Quit / New Game Button during game
-    btnQuitGame.addEventListener('click', () => {
-      const ok = confirm('Leave this game and return to setup?');
-      if (ok) {
-        checkResumeOption();
-        showScreen('start');
+    btnRoll.addEventListener('click', () => {
+      if (isOnlineMode) {
+        if (!onlineView || onlineView.you !== onlineView.game.current || onlineView.game.rollsLeft <= 0) return;
+        if (onOnlineAction) onOnlineAction({ type: 'roll' });
+      } else {
+        handleRoll();
       }
     });
 
-    // Play Again Button (End Screen)
+    // Quit / Leave Game Button during game
+    btnQuitGame.addEventListener('click', () => {
+      if (isOnlineMode) {
+        const ok = confirm('Leave this online room?');
+        if (ok && onOnlineLeave) {
+          onOnlineLeave();
+        }
+      } else {
+        const ok = confirm('Leave this game and return to setup?');
+        if (ok) {
+          checkResumeOption();
+          showScreen('start');
+        }
+      }
+    });
+
+    // Play Again Button (End Screen - Hot seat)
     btnPlayAgain.addEventListener('click', () => {
       if (!game) return;
       const names = game.players.map(p => p.name);
@@ -568,24 +630,59 @@
       renderGame();
     });
 
-    // Change Players Button (End Screen)
+    // Change Players Button (End Screen - Hot seat)
     btnNewGameSetup.addEventListener('click', () => {
       renderPlayerInputs(getRememberedPlayerNames());
       checkResumeOption();
       showScreen('start');
     });
+
+    // Leave Online Game Button (End Screen - Online)
+    if (btnOnlineLeaveGame) {
+      btnOnlineLeaveGame.addEventListener('click', () => {
+        if (onOnlineLeave) onOnlineLeave();
+      });
+    }
   }
 
   // --- Initialize App ---
   function init() {
     setupEventListeners();
 
-    const savedGame = checkResumeOption();
+    checkResumeOption();
     const rememberedNames = getRememberedPlayerNames();
     renderPlayerInputs(rememberedNames);
 
     showScreen('start');
   }
+
+  // Expose interface for online multiplayer
+  window.YahtzeeApp = {
+    showScreen,
+    enterOnlineMode(view, actionHandler, leaveHandler) {
+      isOnlineMode = true;
+      onlineView = view;
+      onOnlineAction = actionHandler;
+      onOnlineLeave = leaveHandler;
+      if (view.phase === 'playing') {
+        showScreen('game');
+        renderGame();
+      } else if (view.phase === 'over') {
+        showScreen('end');
+        renderEndScreen();
+      }
+    },
+    exitOnlineMode() {
+      isOnlineMode = false;
+      onlineView = null;
+      onOnlineAction = null;
+      onOnlineLeave = null;
+      btnQuitGame.textContent = 'New Game';
+    },
+    showStatusMessage(msg) {
+      statusMessageEl.textContent = msg;
+    }
+  };
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);

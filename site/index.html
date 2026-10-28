@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Accessible hot-seat Yahtzee game for 1 to 4 players.">
+  <meta name="description" content="Accessible hot-seat and online multiplayer Yahtzee game for 1 to 4 players.">
   <title>Yahtzee</title>
   <link rel="stylesheet" href="style.css">
 </head>
@@ -47,10 +47,90 @@
             </div>
           </form>
         </div>
+
+        <div class="setup-card online-card">
+          <h3 class="setup-heading">Online Multiplayer (2 to 4 Players)</h3>
+          <p class="setup-subheading">Play with friends on separate devices.</p>
+          <div class="setup-submit">
+            <button type="button" id="btn-play-online" class="btn btn-secondary btn-large">Play Online</button>
+          </div>
+          <p id="online-start-error" class="error-msg" role="alert" hidden></p>
+        </div>
+      </section>
+
+      <!-- Screen 1b: Online Setup Screen -->
+      <section id="screen-online" class="screen" aria-labelledby="online-setup-title" hidden>
+        <div class="setup-card">
+          <div class="screen-nav-bar">
+            <button type="button" id="btn-online-back" class="btn btn-outline btn-small">← Back to Local Play</button>
+          </div>
+          <h2 id="online-setup-title" class="setup-heading">Online Multiplayer</h2>
+          <p class="setup-subheading">Create a room or join an existing room.</p>
+
+          <div id="online-join-prompt" class="online-prompt-banner" hidden>
+            <p id="online-prompt-text"></p>
+          </div>
+
+          <div class="form-group">
+            <label for="online-player-name" class="form-label">Your Name</label>
+            <input type="text" id="online-player-name" class="form-input" maxlength="20" placeholder="Enter your name" autocomplete="nickname">
+          </div>
+
+          <div class="online-actions-grid">
+            <div class="online-action-box">
+              <h3 class="action-box-title">Create Room</h3>
+              <p class="action-box-desc">Start a new room as host and invite friends to join.</p>
+              <button type="button" id="btn-create-room" class="btn btn-primary btn-large">Create Room</button>
+            </div>
+
+            <div class="online-action-box">
+              <h3 class="action-box-title">Join Room</h3>
+              <p class="action-box-desc">Enter a 4-character room code to join an existing game.</p>
+              <div class="join-input-group">
+                <input type="text" id="online-room-code" class="form-input code-input" maxlength="4" placeholder="CODE" aria-label="4-letter room code">
+                <button type="button" id="btn-join-room" class="btn btn-primary">Join</button>
+              </div>
+            </div>
+          </div>
+
+          <p id="online-error-msg" class="error-msg" role="alert" hidden></p>
+        </div>
+      </section>
+
+      <!-- Screen 1c: Lobby Screen -->
+      <section id="screen-lobby" class="screen" aria-labelledby="lobby-title" hidden>
+        <div class="setup-card lobby-card">
+          <div class="lobby-header">
+            <h2 id="lobby-title" class="setup-heading">Room: <span id="lobby-code-display" class="room-code-badge"></span></h2>
+            <button type="button" id="btn-copy-invite" class="btn btn-secondary btn-small">Copy Invite Link</button>
+          </div>
+          <p id="copy-status-msg" class="copy-status-msg" aria-live="polite"></p>
+
+          <div class="lobby-players-section">
+            <h3 class="setup-heading" style="font-size: 1.05rem;">Players (<span id="lobby-player-count">1</span>/4)</h3>
+            <ul id="lobby-player-list" class="lobby-player-list" aria-label="List of players in room">
+              <!-- Players injected dynamically -->
+            </ul>
+          </div>
+
+          <div id="lobby-host-controls" class="lobby-controls" hidden>
+            <button type="button" id="btn-start-online-game" class="btn btn-primary btn-large" disabled>Start Game (Requires 2+ players)</button>
+          </div>
+          <div id="lobby-guest-controls" class="lobby-controls" hidden>
+            <p class="waiting-text">Waiting for the host to start the game…</p>
+          </div>
+
+          <div class="lobby-footer">
+            <button type="button" id="btn-leave-lobby" class="btn btn-outline">Leave Room</button>
+          </div>
+          <p id="lobby-error-msg" class="error-msg" role="alert" hidden></p>
+        </div>
       </section>
 
       <!-- Screen 2: Game Screen -->
       <section id="screen-game" class="screen" aria-labelledby="game-status-announcement" hidden>
+        <div id="reconnecting-badge" class="reconnecting-badge" role="status" hidden>Reconnecting…</div>
+
         <div class="game-header-bar">
           <div class="turn-status">
             <span class="turn-badge">Turn</span>
@@ -126,6 +206,7 @@
           <div class="end-actions">
             <button type="button" id="btn-play-again" class="btn btn-primary btn-large">Play Again</button>
             <button type="button" id="btn-new-game-setup" class="btn btn-secondary">Change Players</button>
+            <button type="button" id="btn-online-leave-game" class="btn btn-secondary btn-large" hidden>Leave Room</button>
           </div>
         </div>
       </section>
@@ -135,5 +216,6 @@
   <script src="score.js"></script>
   <script src="game.js"></script>
   <script src="app.js"></script>
+  <script src="online.js"></script>
 </body>
 </html>
