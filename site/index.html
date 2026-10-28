@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Accessible hot-seat Yahtzee game for 1 to 4 players.">
+  <title>Yahtzee</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app" class="app-container">
+    <header class="app-header">
+      <h1 class="app-title">Yahtzee</h1>
+    </header>
+
+    <main class="app-main">
+      <!-- Screen 1: Start Screen -->
+      <section id="screen-start" class="screen" aria-labelledby="start-title">
+        <h2 id="start-title" class="sr-only">Game Setup</h2>
+
+        <div id="resume-banner" class="resume-card" hidden>
+          <div class="resume-info">
+            <h3 class="resume-title">Game In Progress</h3>
+            <p id="resume-details" class="resume-desc">Saved game found.</p>
+          </div>
+          <div class="resume-actions">
+            <button type="button" id="btn-resume-game" class="btn btn-primary">Resume Game</button>
+            <button type="button" id="btn-discard-game" class="btn btn-secondary">Discard</button>
+          </div>
+        </div>
+
+        <div class="setup-card">
+          <h3 class="setup-heading">Hot-Seat Play (1 to 4 Players)</h3>
+          <p class="setup-subheading">Enter player names and take turns rolling on this device.</p>
+
+          <form id="setup-form" class="setup-form">
+            <div id="player-inputs-container" class="player-inputs-container">
+              <!-- Dynamically populated player inputs -->
+            </div>
+
+            <div class="setup-controls">
+              <button type="button" id="btn-add-player" class="btn btn-outline">+ Add Player</button>
+            </div>
+
+            <div class="setup-submit">
+              <button type="submit" id="btn-start-game" class="btn btn-primary btn-large">Start Game</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- Screen 2: Game Screen -->
+      <section id="screen-game" class="screen" aria-labelledby="game-status-announcement" hidden>
+        <div class="game-header-bar">
+          <div class="turn-status">
+            <span class="turn-badge">Turn</span>
+            <h2 id="current-player-name" class="current-player-heading">Player</h2>
+          </div>
+          <div class="game-actions-bar">
+            <button type="button" id="btn-quit-game" class="btn btn-outline btn-small">New Game</button>
+          </div>
+        </div>
+
+        <div id="status-message" class="status-message" role="status" aria-live="polite"></div>
+
+        <!-- Dice & Rolling Area -->
+        <div class="dice-section" aria-label="Dice controls">
+          <div id="dice-container" class="dice-container" role="group" aria-label="Five Yahtzee dice">
+            <!-- 5 dice buttons injected by app.js -->
+          </div>
+
+          <div class="roll-controls">
+            <button type="button" id="btn-roll" class="btn btn-primary btn-roll">
+              Roll (<span id="rolls-left-count">3</span> left)
+            </button>
+            <p id="roll-instruction" class="roll-instruction">Roll to start your turn.</p>
+          </div>
+        </div>
+
+        <!-- Scorecard Area -->
+        <div class="scorecard-section" aria-label="Scorecard">
+          <div class="scorecard-wrapper">
+            <table id="scorecard-table" class="scorecard-table">
+              <caption class="sr-only">Yahtzee Scorecard</caption>
+              <thead>
+                <tr id="scorecard-head-row">
+                  <th scope="col" class="col-category">Category</th>
+                  <!-- Player column headers injected by app.js -->
+                </tr>
+              </thead>
+              <tbody id="scorecard-body">
+                <!-- Scorecard rows injected by app.js -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Screen 3: End Screen -->
+      <section id="screen-end" class="screen" aria-labelledby="end-title" hidden>
+        <div class="end-card">
+          <h2 id="end-title" class="end-title">Game Over!</h2>
+          <div id="winner-banner" class="winner-banner" role="status">
+            <!-- Winner announcement -->
+          </div>
+
+          <div class="standings-wrapper">
+            <h3 class="standings-title">Final Totals</h3>
+            <table class="standings-table">
+              <thead>
+                <tr>
+                  <th scope="col">Rank</th>
+                  <th scope="col">Player</th>
+                  <th scope="col">Upper</th>
+                  <th scope="col">Bonus</th>
+                  <th scope="col">Lower</th>
+                  <th scope="col">Total</th>
+                </tr>
+              </thead>
+              <tbody id="standings-body">
+                <!-- Standings injected by app.js -->
+              </tbody>
+            </table>
+          </div>
+
+          <div class="end-actions">
+            <button type="button" id="btn-play-again" class="btn btn-primary btn-large">Play Again</button>
+            <button type="button" id="btn-new-game-setup" class="btn btn-secondary">Change Players</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="score.js"></script>
+  <script src="game.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
