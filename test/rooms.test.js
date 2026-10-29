@@ -107,3 +107,32 @@ test('sweep drops rooms idle for over 2 hours and keeps active ones', () => {
   assert.throws(() => s.view(a.code, a.token), { status: 404 });
   assert.equal(s.view(b.code, b.token).players.length, 2);
 });
+
+test('onFinish gets final totals once, with account ids and yahtzee counts', () => {
+  const calls = []; const s = mk({ onFinish: g => calls.push(g) });
+  const h = s.create('A', 1); const j = s.join(h.code, 'B', 2);
+  s.start(h.code, h.token);
+  const cats = ['ones','twos','threes','fours','fives','sixes','threeKind','fourKind','fullHouse','smallStraight','largeStraight','yahtzee','chance'];
+  for (const c of cats) for (const t of [h.token, j.token]) { s.act(h.code, t, { type: 'roll' }); s.act(h.code, t, { type: 'score', category: c }); }
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].players.map(p => [p.userId, p.name]), [[1, 'A'], [2, 'B']]);
+  for (const p of calls[0].players) { assert.equal(typeof p.total, 'number'); assert.equal(typeof p.yahtzees, 'number'); }
+  assert.equal(typeof calls[0].endedAt, 'number');
+});
+test('onFinish does not fire for a game that is not finished', () => {
+  const calls = []; const s = mk({ onFinish: g => calls.push(g) });
+  const { code, toks } = lobby(s); s.start(code, toks[0]); s.act(code, toks[0], { type: 'roll' });
+  assert.equal(calls.length, 0);
+});
+test('the same account cannot sit in a room twice', () => {
+  const s = mk(); const h = s.create('A', 7);
+  assert.throws(() => s.join(h.code, 'A again', 7), { status: 409 });
+  assert.doesNotThrow(() => s.join(h.code, 'Guest', null));
+});
+test('view.ranked is true only with 2 or more distinct accounts', () => {
+  const s = mk(); const h = s.create('A', 1);
+  s.join(h.code, 'G');
+  assert.equal(s.view(h.code, h.token).ranked, false);
+  s.join(h.code, 'B', 2);
+  assert.equal(s.view(h.code, h.token).ranked, true);
+});
