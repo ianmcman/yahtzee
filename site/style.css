@@ -1514,8 +1514,6 @@ h1, h2, h3, .setup-heading, .end-title, .standings-title, .lobby-subheading, .ac
 /* === PWA: safe areas, tap behaviour === */
 .game-top-bar { padding-top: calc(8px + env(safe-area-inset-top)); padding-left: calc(12px + env(safe-area-inset-left)); padding-right: calc(12px + env(safe-area-inset-right)); }
 .bottom-bar { padding-bottom: calc(6px + env(safe-area-inset-bottom)); }
-.app-container { padding-top: env(safe-area-inset-top); }
-#screen-game .app-container { padding-top: 0; }
 button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 #screen-game button, #screen-game { user-select: none; -webkit-user-select: none; }
 
@@ -1528,3 +1526,75 @@ button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 #screen-account .online-actions-grid { margin-bottom: 12px; }
 #screen-profile th { text-align: left; color: var(--mk-text-sub); font-weight: 400; }
 .account-card { margin-bottom: 16px; }
+
+/* === Mobile scale: big tap targets that fill the screen === */
+/* The tile size comes from the space the board area really has (container query units), so it fills the screen on any phone. */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  /* Fixed chrome (top bar, tray, roll button, bottom bar) is about 370px plus the safe areas. */
+  --die: clamp(54px, calc((min(100vw, 480px) - 24px - 20px - 32px) / 5), 88px);
+}
+
+.app-header { padding-top: calc(12px + var(--sat)); }
+
+#screen-game { justify-content: flex-start; }
+
+/* Top bar */
+.game-top-bar {
+  padding: calc(8px + var(--sat)) calc(12px + var(--sar)) 8px calc(12px + var(--sal));
+  min-height: calc(56px + var(--sat));
+}
+.btn-top-gear { width: 46px; height: 46px; }
+.btn-top-gear svg { width: 26px; height: 26px; }
+.badge-avatar { width: 44px; height: 44px; font-size: 1rem; }
+.badge-score-pill { height: 34px; min-width: 40px; font-size: 1.15rem; padding: 0 12px 0 22px; }
+.player-badge-btn { min-height: 48px; }
+
+/* Board */
+.game-board-area { padding: 8px 10px; justify-content: center; overflow: hidden; container-type: size; }
+.board-frame {
+  --tile: clamp(30px, min(14.5vw, calc((100cqh - 44px) / 7.84)), 76px);
+}
+.board-frame { padding: 8px; }
+.felt-panel { padding: 10px; gap: 0 14px; }
+.felt-column { gap: calc(var(--tile) * 0.14); }
+.board-row, .bonus-row { height: var(--tile); gap: calc(var(--tile) * 0.14); }
+.red-tile { width: var(--tile); height: var(--tile); border-radius: calc(var(--tile) * 0.18); border-bottom-width: calc(var(--tile) * 0.07); }
+.pip-grid { width: calc(var(--tile) * 0.64); height: calc(var(--tile) * 0.64); gap: 0; }
+.pip-white { width: calc(var(--tile) * 0.14); height: calc(var(--tile) * 0.14); }
+.pip-empty { width: calc(var(--tile) * 0.14); height: calc(var(--tile) * 0.14); }
+.tile-text-threeKind, .tile-text-fourKind { font-size: calc(var(--tile) * 0.46); }
+.tile-text-smallStraight, .tile-text-largeStraight { font-size: calc(var(--tile) * 0.2); letter-spacing: 0; }
+.tile-text-yahtzee { font-size: calc(var(--tile) * 0.15); letter-spacing: 0; }
+.tile-text-chance { font-size: calc(var(--tile) * 0.6); }
+.tile-icon-svg { width: calc(var(--tile) * 0.58); height: calc(var(--tile) * 0.58); }
+.score-cell { height: var(--tile); min-width: calc(var(--tile) * 1.1); border-radius: calc(var(--tile) * 0.16); }
+.score-solid, .score-faded { font-size: calc(var(--tile) * 0.46); }
+.bonus-text-label { font-size: calc(var(--tile) * 0.22); }
+.bonus-points-label { font-size: calc(var(--tile) * 0.42); }
+.bonus-ring-wrap { width: calc(var(--tile) * 0.95); height: calc(var(--tile) * 0.95); }
+.bonus-fraction { font-size: calc(var(--tile) * 0.2); }
+
+/* Dice tray */
+.tray-section { padding: 6px 10px; }
+.dice-slots { padding: 8px 10px; gap: 8px; border-radius: 18px; }
+.recessed-slot { width: var(--die); height: var(--die); border-radius: calc(var(--die) * 0.2); }
+.die-btn { width: calc(var(--die) * 0.9); height: calc(var(--die) * 0.9); border-radius: calc(var(--die) * 0.16); padding: calc(var(--die) * 0.1); gap: 1px; }
+.pip-black { width: calc(var(--die) * 0.16); height: calc(var(--die) * 0.16); }
+.die-held-label { font-size: calc(var(--die) * 0.17); bottom: calc(var(--die) * -0.12); padding: 2px 6px; }
+.die-btn.is-held { transform: translateY(calc(var(--die) * -0.14)); }
+
+/* Roll button */
+.roll-section { padding: 6px 10px 4px; gap: 6px; }
+.btn-roll { height: 64px; font-size: 1.7rem; border-radius: 18px; gap: 14px; }
+.roll-chip { width: 34px; height: 34px; border-radius: 9px; font-size: 1.15rem; }
+.roll-status-line { font-size: 0.85rem; min-height: 1.2rem; }
+
+/* Bottom bar */
+.bottom-bar { padding: 4px calc(20px + var(--sar)) calc(6px + var(--sab)) calc(20px + var(--sal)); }
+.bottom-bar-btn { min-height: 52px; padding: 4px 32px; gap: 3px; }
+.bottom-bar-icon { width: 30px; height: 30px; }
+.bottom-bar-text { font-size: 0.85rem; }

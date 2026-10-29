@@ -1,4 +1,4 @@
-const CACHE = 'yahtzee-v3';
+const CACHE = 'yahtzee-v4';
 const PRECACHE = [
   '/',
   '/index.html',
