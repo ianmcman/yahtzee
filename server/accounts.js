@@ -62,6 +62,7 @@ function createAccounts({ db, now = () => Date.now() }) {
   const setPw = db.prepare('UPDATE users SET pw = ? WHERE id = ?');
 
   const failures = new Map();
+  const knownIps = new Map(); // username_lc -> recent IPs with a successful login (memory only)
   const dummy = hashPassword('dummy-password');
 
   function newSession(userId) {
@@ -72,6 +73,9 @@ function createAccounts({ db, now = () => Date.now() }) {
 
   function recentFailures(key) {
     const cutoff = now() - LOCK_MS;
+    if (failures.size > 5000) {
+      for (const [k, v] of failures) if (!v.some(t => t > cutoff)) failures.delete(k);
+    }
     const list = (failures.get(key) || []).filter(t => t > cutoff);
     failures.set(key, list);
     return list;
@@ -94,7 +98,7 @@ function createAccounts({ db, now = () => Date.now() }) {
     const lc = typeof username === 'string' ? username.toLowerCase() : '';
     const key = `${ip}|${lc}`;
     const userKey = `*|${lc}`;
-    if (recentFailures(key).length >= LOCK_FAILS || recentFailures(userKey).length >= USER_LOCK_FAILS) {
+    if (recentFailures(key).length >= LOCK_FAILS || (recentFailures(userKey).length >= USER_LOCK_FAILS && !(knownIps.get(lc) || new Set()).has(ip))) {
       throw httpError(429, 'Too many failed attempts. Try again later.');
     }
     const row = typeof username === 'string' && typeof password === 'string' ? byName.get(username.toLowerCase()) : null;
@@ -105,6 +109,12 @@ function createAccounts({ db, now = () => Date.now() }) {
       throw httpError(401, 'Wrong username or password');
     }
     failures.delete(key);
+    failures.delete(userKey);
+    const ips = knownIps.get(lc) || new Set();
+    ips.delete(ip);
+    ips.add(ip);
+    if (ips.size > 10) ips.delete(ips.values().next().value);
+    knownIps.set(lc, ips);
     return { user: { id: row.id, username: row.username }, sid: newSession(row.id) };
   }
 

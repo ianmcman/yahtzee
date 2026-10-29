@@ -91,3 +91,13 @@ test('a distributed guesser is stopped: 30 failures from different addresses loc
   t += 16 * 60e3;
   assert.equal(a.login('Ian', 'password1', { ip: '203.0.113.200' }).user.username, 'Ian');
 });
+
+test('the owner can still sign in from an address they used before while the username cap is hit, and success clears it', () => {
+  let t = 1e12; const { a } = mk({ now: () => t });
+  a.register('Ian', 'password1');
+  a.login('Ian', 'password1', { ip: '203.0.113.5' });
+  for (let i = 0; i < 30; i++) assert.throws(() => a.login('Ian', 'bad-pass-' + i, { ip: '198.51.100.' + i }), { status: 401 });
+  assert.throws(() => a.login('Ian', 'password1', { ip: '203.0.113.99' }), { status: 429 });
+  assert.equal(a.login('Ian', 'password1', { ip: '203.0.113.5' }).user.username, 'Ian');
+  assert.equal(a.login('Ian', 'password1', { ip: '203.0.113.99' }).user.username, 'Ian');
+});
