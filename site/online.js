@@ -98,10 +98,17 @@
       headers['x-token'] = currentSession.token;
     }
 
-    const res = await fetch(endpoint, {
-      ...options,
-      headers
-    });
+    let res;
+    try {
+      res = await fetch(endpoint, {
+        ...options,
+        headers
+      });
+    } catch {
+      const err = new Error("You're offline. Hot-seat play still works.");
+      err.status = 0;
+      throw err;
+    }
 
     let data = null;
     try {
@@ -121,11 +128,17 @@
   }
 
   // --- Server Probe ---
+  let probeOffline = false;
+  function unavailableMessage() {
+    return probeOffline ? "You're offline. Hot-seat play still works." : 'Online play is unavailable on this server.';
+  }
   async function checkServerAvailable() {
+    probeOffline = false;
     try {
       const res = await fetch('/healthz');
       return res.ok;
     } catch {
+      probeOffline = true;
       return false;
     }
   }
@@ -273,7 +286,7 @@
   async function promptJoinRoom(code) {
     const available = await checkServerAvailable();
     if (!available) {
-      onlineStartError.textContent = 'Online play is unavailable on this server.';
+      onlineStartError.textContent = unavailableMessage();
       onlineStartError.hidden = false;
       return;
     }
@@ -299,7 +312,7 @@
       onlineStartError.textContent = '';
       const available = await checkServerAvailable();
       if (!available) {
-        onlineStartError.textContent = 'Online play is unavailable on this server.';
+        onlineStartError.textContent = unavailableMessage();
         onlineStartError.hidden = false;
         return;
       }

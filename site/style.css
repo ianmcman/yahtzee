@@ -1510,3 +1510,11 @@ h1, h2, h3, .setup-heading, .end-title, .standings-title, .lobby-subheading, .ac
 .player-badge-btn.is-viewing .badge-avatar { border-color: var(--mk-yellow); box-shadow: 0 0 0 2px hsla(55, 70%, 67%, 0.5); }
 .reconnecting-badge { background: var(--mk-orange); color: var(--mk-bg); }
 #screen-game { background-color: var(--mk-bg); color: var(--mk-text-hi); }
+
+/* === PWA: safe areas, tap behaviour === */
+.game-top-bar { padding-top: calc(8px + env(safe-area-inset-top)); padding-left: calc(12px + env(safe-area-inset-left)); padding-right: calc(12px + env(safe-area-inset-right)); }
+.bottom-bar { padding-bottom: calc(6px + env(safe-area-inset-bottom)); }
+.app-container { padding-top: env(safe-area-inset-top); }
+#screen-game .app-container { padding-top: 0; }
+button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+#screen-game button, #screen-game { user-select: none; -webkit-user-select: none; }

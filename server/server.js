@@ -17,6 +17,7 @@ const MIME_TYPES = {
   '.png': 'image/png',
   '.ico': 'image/x-icon',
   '.woff2': 'font/woff2',
+  '.webmanifest': 'application/manifest+json; charset=utf-8',
   '.txt': 'text/plain; charset=utf-8'
 };
 
@@ -272,8 +273,12 @@ function createServer({ store, staticDir }) {
         return;
       }
 
+      const extra = decodedPathname === '/sw.js'
+        ? { 'Cache-Control': 'no-cache', 'Service-Worker-Allowed': '/' }
+        : {};
       res.writeHead(200, {
         'Content-Type': contentType,
+        ...extra,
         ...SECURITY_HEADERS
       });
 
