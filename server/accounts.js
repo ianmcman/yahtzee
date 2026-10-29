@@ -4,6 +4,7 @@ const USER_RE = /^[A-Za-z0-9_-]{3,20}$/;
 const SESSION_MS = 30 * 864e5;
 const LOCK_FAILS = 5;
 const LOCK_MS = 15 * 60e3;
+const USER_LOCK_FAILS = 30;
 
 function httpError(status, message) {
   const err = new Error(message);
@@ -90,14 +91,17 @@ function createAccounts({ db, now = () => Date.now() }) {
   }
 
   function login(username, password, { ip = '' } = {}) {
-    const key = `${ip}|${typeof username === 'string' ? username.toLowerCase() : ''}`;
-    if (recentFailures(key).length >= LOCK_FAILS) {
+    const lc = typeof username === 'string' ? username.toLowerCase() : '';
+    const key = `${ip}|${lc}`;
+    const userKey = `*|${lc}`;
+    if (recentFailures(key).length >= LOCK_FAILS || recentFailures(userKey).length >= USER_LOCK_FAILS) {
       throw httpError(429, 'Too many failed attempts. Try again later.');
     }
     const row = typeof username === 'string' && typeof password === 'string' ? byName.get(username.toLowerCase()) : null;
     const ok = row ? verifyPassword(password, row.pw) : (verifyPassword('x', dummy), false);
     if (!ok) {
       recentFailures(key).push(now());
+      recentFailures(userKey).push(now());
       throw httpError(401, 'Wrong username or password');
     }
     failures.delete(key);

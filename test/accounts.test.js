@@ -83,3 +83,11 @@ test('exists checks usernames ignoring case and surrounding spaces', () => {
   assert.equal(a.exists('ann'), true); assert.equal(a.exists('  ANN '), true);
   assert.equal(a.exists('Bob'), false); assert.equal(a.exists(null), false);
 });
+test('a distributed guesser is stopped: 30 failures from different addresses lock the username for everyone', () => {
+  let t = 1e12; const { a } = mk({ now: () => t });
+  a.register('Ian', 'password1');
+  for (let i = 0; i < 30; i++) assert.throws(() => a.login('Ian', 'bad-pass-' + i, { ip: '198.51.100.' + i }), { status: 401 });
+  assert.throws(() => a.login('Ian', 'password1', { ip: '203.0.113.200' }), { status: 429 });
+  t += 16 * 60e3;
+  assert.equal(a.login('Ian', 'password1', { ip: '203.0.113.200' }).user.username, 'Ian');
+});

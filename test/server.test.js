@@ -114,7 +114,7 @@ const { createStats } = require('../server/stats.js');
 async function bootAcc(extra = {}) {
   const db = new DatabaseSync(':memory:');
   const accounts = createAccounts({ db }); const stats = createStats({ db });
-  const store = createRoomStore({ onFinish: g => stats.record(g) });
+  const store = createRoomStore({ onFinish: g => stats.record(g), isReserved: n => accounts.exists(n) });
   const srv = createServer({ store, accounts, stats, ...extra, staticDir: require('node:path').join(__dirname, '../site') });
   await new Promise(r => srv.listen(0, '127.0.0.1', r));
   const base = `http://127.0.0.1:${srv.address().port}`;

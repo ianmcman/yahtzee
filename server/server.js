@@ -105,10 +105,16 @@ function isJson(req) {
 // Behind a reverse proxy the socket peer is the proxy. Trust X-Real-IP only from configured proxy addresses.
 function makeClientIp(trustedProxies) {
   const trusted = new Set(trustedProxies);
+  let warned = false;
   return req => {
     const peer = (req.socket.remoteAddress || '').replace(/^::ffff:/, '');
     const fwd = req.headers['x-real-ip'];
-    return trusted.has(peer) && typeof fwd === 'string' && fwd ? fwd.trim() : peer;
+    if (trusted.has(peer)) return typeof fwd === 'string' && fwd ? fwd.trim() : peer;
+    if (fwd && !warned) {
+      warned = true;
+      console.warn(`X-Real-IP seen from untrusted peer ${peer}; rate limits use the peer address. Set TRUSTED_PROXY if this is your reverse proxy.`);
+    }
+    return peer;
   };
 }
 
@@ -134,14 +140,6 @@ function createServer({ store, staticDir, accounts = null, stats = null, trusted
     if (!accounts) return null;
     if (req.method === 'POST' && !isJson(req)) return null;
     return accounts.userForSession(parseCookies(req).sid);
-  }
-
-  function rejectTakenGuestName(user, name) {
-    if (!user && accounts && accounts.exists(name)) {
-      const err = new Error('That name belongs to a registered player. Sign in or pick another name.');
-      err.status = 409;
-      throw err;
-    }
   }
 
   function setSession(req, res, sid, maxAge) {
@@ -242,7 +240,6 @@ function createServer({ store, staticDir, accounts = null, stats = null, trusted
         try {
           const body = await readJsonBody(req);
           const user = sessionUser(req);
-          rejectTakenGuestName(user, body.name);
           const result = store.create(user ? user.username : body.name, user ? user.id : null);
           sendJson(res, 201, result);
         } catch (err) {
@@ -258,7 +255,6 @@ function createServer({ store, staticDir, accounts = null, stats = null, trusted
           const code = decodeURIComponent(joinMatch[1]);
           const body = await readJsonBody(req);
           const user = sessionUser(req);
-          rejectTakenGuestName(user, body.name);
           const result = store.join(code, user ? user.username : body.name, user ? user.id : null);
           sendJson(res, 200, result);
         } catch (err) {
@@ -440,7 +436,7 @@ if (require.main === module) {
   } catch (err) {
     console.error('Accounts disabled:', err.message);
   }
-  const store = createRoomStore({ onFinish });
+  const store = createRoomStore({ onFinish, isReserved: accounts ? n => accounts.exists(n) : undefined });
   const staticDir = path.join(__dirname, '../site');
   const trustedProxies = (process.env.TRUSTED_PROXY || '').split(',').map(x => x.trim()).filter(Boolean);
   const server = createServer({ store, staticDir, accounts, stats, trustedProxies });

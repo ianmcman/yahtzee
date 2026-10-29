@@ -136,3 +136,12 @@ test('view.ranked is true only with 2 or more distinct accounts', () => {
   s.join(h.code, 'B', 2);
   assert.equal(s.view(h.code, h.token).ranked, true);
 });
+
+test('guests cannot take a reserved (registered) name, checked on the final stored name', () => {
+  const s = mk({ isReserved: n => n.toLowerCase() === 'ann' });
+  assert.throws(() => s.create(' ANN ', null), { status: 409 });
+  assert.throws(() => s.create('Ann' + ' '.repeat(17) + 'XYZ', null), { status: 409 });
+  const h = s.create('Guesty', null);
+  assert.throws(() => s.join(h.code, 'ann', null), { status: 409 });
+  assert.doesNotThrow(() => s.join(h.code, 'Ann', 5));
+});

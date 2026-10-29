@@ -89,7 +89,7 @@ node server/admin.js reset-password <username>
 node server/admin.js list-users
 ```
 
-In Docker: `docker exec yahtzee node server/admin.js reset-password <username>`. Registration is limited to 5 per hour per client address and logins to 20 per 15 minutes. Behind a reverse proxy, set `TRUSTED_PROXY` to the proxy's address (comma separated for several) so the limits see the real client from its `X-Real-IP` header; the header is ignored from any other peer. Failed-login lockout is per username and client address. Guests cannot use a registered username. A game counts for the leaderboard only if the server ran it and at least two different accounts played, so hot-seat and solo games are never ranked.
+In Docker: `docker exec yahtzee node server/admin.js reset-password <username>`. Registration is limited to 5 per hour per client address and logins to 20 per 15 minutes. Behind a reverse proxy, set `TRUSTED_PROXY` to the proxy's address (comma separated for several) so the limits see the real client from its `X-Real-IP` header; the header is ignored from any other peer. Failed-login lockout is 5 attempts per username and client address, plus a cap of 30 failures per username across all addresses (15 minute window). The second cap stops distributed guessing and also means a determined stranger can briefly lock a known username. Guests cannot use a registered username. A game counts for the leaderboard only if the server ran it and at least two different accounts played, so hot-seat and solo games are never ranked.
 
 ## Behind a reverse proxy
 

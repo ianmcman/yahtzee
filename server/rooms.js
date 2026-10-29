@@ -14,11 +14,11 @@ function cleanName(name) {
   if (typeof name !== 'string') {
     throw httpError(400, 'Name must be a string');
   }
-  const trimmed = name.trim();
+  const trimmed = name.trim().slice(0, 20).trim();
   if (trimmed.length === 0) {
     throw httpError(400, 'Name cannot be empty');
   }
-  return trimmed.slice(0, 20);
+  return trimmed;
 }
 
 function generateToken() {
@@ -29,6 +29,13 @@ function createRoomStore(options = {}) {
   const rng = options.rng;
   const now = options.now || (() => Date.now());
   const onFinish = options.onFinish;
+  const isReserved = options.isReserved;
+
+  function checkGuestName(name, userId) {
+    if (userId == null && isReserved && isReserved(name)) {
+      throw httpError(409, 'That name belongs to a registered player. Sign in or pick another name.');
+    }
+  }
 
   const rooms = new Map();
 
@@ -69,6 +76,7 @@ function createRoomStore(options = {}) {
 
   function create(name, userId = null) {
     const validName = cleanName(name);
+    checkGuestName(validName, userId);
     const code = generateCode();
     const token = generateToken();
 
@@ -99,6 +107,7 @@ function createRoomStore(options = {}) {
       throw httpError(409, 'You are already in this room');
     }
     const validName = cleanName(name);
+    checkGuestName(validName, userId);
     const token = generateToken();
 
     room.players.push({ name: validName, token, userId });
