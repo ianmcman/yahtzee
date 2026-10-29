@@ -1,4 +1,4 @@
-const CACHE = 'yahtzee-v5';
+const CACHE = 'yahtzee-v6';
 const PRECACHE = [
   '/',
   '/index.html',
@@ -44,16 +44,14 @@ self.addEventListener('fetch', event => {
     return;
   }
 
+  // Network first so a deploy never serves old scripts next to new HTML; the cache is the offline fallback.
   event.respondWith(
-    caches.match(req).then(hit => {
-      const net = fetch(req).then(res => {
-        if (res && res.ok) {
-          const copy = res.clone();
-          caches.open(CACHE).then(c => c.put(req, copy));
-        }
-        return res;
-      });
-      return hit || net;
-    })
+    fetch(req).then(res => {
+      if (res && res.ok) {
+        const copy = res.clone();
+        caches.open(CACHE).then(c => c.put(req, copy));
+      }
+      return res;
+    }).catch(() => caches.match(req))
   );
 });
