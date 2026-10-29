@@ -95,3 +95,15 @@ test('serves the bundled font as font/woff2', async () => {
     assert.equal(r.status, 200); assert.equal(r.headers.get('content-type'), 'font/woff2');
   } finally { await close(); }
 });
+test('serves the manifest as application/manifest+json and the service worker uncached', async () => {
+  const { base, close } = await boot();
+  try {
+    const m = await fetch(base + '/manifest.webmanifest');
+    assert.equal(m.status, 200); assert.match(m.headers.get('content-type'), /^application\/manifest\+json/);
+    const s = await fetch(base + '/sw.js');
+    assert.equal(s.status, 200); assert.match(s.headers.get('content-type'), /javascript/);
+    assert.match(s.headers.get('cache-control'), /no-cache|no-store/);
+    assert.equal(s.headers.get('service-worker-allowed'), '/');
+    assert.equal((await fetch(base + '/icons/icon-192.png')).headers.get('content-type'), 'image/png');
+  } finally { await close(); }
+});
