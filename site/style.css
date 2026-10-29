@@ -1378,3 +1378,135 @@ body {
     opacity: 0.55;
   }
 }
+
+/* === Monokai theme (Dynacat / Spiro palette) === */
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/JetBrainsMono-Regular.woff2') format('woff2');
+  font-weight: 100 800;
+  font-display: swap;
+}
+
+:root, :root:root {
+  --mk-bg: hsl(70, 8%, 15%);
+  --mk-card: hsl(70, 8%, 17%);
+  --mk-card-hi: hsl(70, 8%, 21%);
+  --mk-border: hsl(70, 8%, 27%);
+  --mk-text: hsl(70, 8%, 63.8%);
+  --mk-text-hi: hsl(70, 8%, 93.5%);
+  --mk-text-sub: hsl(70, 8%, 45%);
+  --mk-primary: hsl(190, 81%, 67%);
+  --mk-pink: #f92672;
+  --mk-orange: #fd971f;
+  --mk-yellow: #e6db74;
+  --mk-green: #a6e22e;
+  --mk-purple: #ae81ff;
+
+  --bg-color: var(--mk-bg);
+  --surface-color: var(--mk-card);
+  --surface-raised: var(--mk-card-hi);
+  --surface-highlight: var(--mk-border);
+  --border-color: var(--mk-border);
+  --border-subtle: hsl(70, 8%, 21%);
+  --text-main: var(--mk-text-hi);
+  --text-muted: var(--mk-text);
+  --text-dim: var(--mk-text-sub);
+  --accent-color: var(--mk-primary);
+  --accent-hover: hsl(190, 81%, 75%);
+  --accent-soft: hsla(190, 81%, 67%, 0.15);
+  --success-color: var(--mk-green);
+  --danger-color: var(--mk-pink);
+  --focus-ring: var(--mk-primary);
+  --font-sans: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+}
+
+body { font-size: 14px; }
+h1, h2, h3, .setup-heading, .end-title, .standings-title, .lobby-subheading, .action-box-title {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* Game screen: flat bordered cards, no wood, felt or gloss */
+.game-top-bar { background: var(--mk-card); border-bottom: 1px solid var(--mk-border); }
+.board-frame {
+  background: var(--mk-card);
+  border: 1px solid var(--mk-border);
+  border-radius: var(--radius-lg);
+  box-shadow: none;
+  padding: 8px;
+}
+.felt-panel {
+  background: var(--mk-bg);
+  border-radius: var(--radius-md);
+  box-shadow: none;
+  border: 1px solid hsl(70, 8%, 21%);
+}
+.felt-panel::after { background: hsl(70, 8%, 21%); box-shadow: none; }
+.read-only-banner { background: var(--mk-card-hi); color: var(--mk-yellow); border: 1px solid var(--mk-border); }
+
+.red-tile {
+  background: var(--mk-pink);
+  border: none;
+  border-bottom: 3px solid hsl(338, 85%, 36%);
+  border-radius: var(--radius-md);
+  box-shadow: none;
+  color: var(--mk-text-hi);
+}
+.pip-white { background: var(--mk-text-hi); box-shadow: none; }
+.tile-text { color: var(--mk-text-hi); text-shadow: none; font-weight: 800; }
+
+.score-cell {
+  background: var(--mk-card-hi);
+  border: 1px solid var(--mk-border);
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+.score-cell.cell-open:hover { border-color: var(--mk-primary); box-shadow: none; }
+.score-solid { color: var(--mk-green); }
+.score-faded { color: var(--mk-text); opacity: 0.55; }
+.score-cell.hint-pulse { border-color: var(--mk-yellow); box-shadow: 0 0 0 2px hsla(55, 70%, 67%, 0.45); }
+
+.bonus-text-label, .bonus-points-label { color: var(--mk-text-sub); }
+.bonus-points-label.earned { color: var(--mk-yellow); }
+
+.board-area, .tray-section .dice-slots { background: transparent; }
+.dice-slots {
+  background: var(--mk-card);
+  border: 1px solid var(--mk-border);
+  border-radius: var(--radius-lg);
+  box-shadow: none;
+}
+.recessed-slot { background: var(--mk-bg); border: 1px solid hsl(70, 8%, 21%); box-shadow: none; }
+.die-btn { background: var(--mk-text-hi); border: 1px solid var(--mk-border); box-shadow: none; border-radius: var(--radius-md); }
+.pip-black { background: var(--mk-bg); }
+.die-btn[aria-label*="not held"] { }
+.die-btn.is-held, .die-btn[aria-label*=", held"] { outline: 2px solid var(--mk-yellow); }
+.die-held-label { background: var(--mk-yellow); color: var(--mk-bg); }
+
+.btn-roll {
+  background: var(--mk-primary);
+  color: var(--mk-bg);
+  border: none;
+  border-bottom: 4px solid hsl(190, 60%, 42%);
+  border-radius: var(--radius-lg);
+  box-shadow: none;
+  text-shadow: none;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.btn-roll:disabled { border-bottom-color: hsl(190, 40%, 30%); }
+.chip-unused { background: var(--mk-bg); color: var(--mk-primary); }
+.chip-used { background: hsla(70, 8%, 15%, 0.35); color: var(--mk-bg); }
+.roll-status-line { color: var(--mk-text); }
+
+.bottom-bar { background: var(--mk-card); border-top: 1px solid var(--mk-border); }
+.bottom-bar-btn { color: var(--mk-text); }
+.pill-turn { background: var(--mk-primary); color: var(--mk-bg); }
+.pill-other { background: var(--mk-card-hi); color: var(--mk-text); border: 1px solid var(--mk-border); }
+.badge-avatar { background: var(--mk-card-hi); color: var(--mk-text-hi); border: 1px solid var(--mk-border); }
+.player-badge-btn.is-viewing .badge-avatar { border-color: var(--mk-yellow); box-shadow: 0 0 0 2px hsla(55, 70%, 67%, 0.5); }
+.reconnecting-badge { background: var(--mk-orange); color: var(--mk-bg); }
+#screen-game { background-color: var(--mk-bg); color: var(--mk-text-hi); }

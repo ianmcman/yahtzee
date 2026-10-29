@@ -88,3 +88,10 @@ test('malformed percent-encoding returns 400 and does not crash the server', asy
     assert.equal((await fetch(`${base}/healthz`)).status, 200);
   } finally { await close(); }
 });
+test('serves the bundled font as font/woff2', async () => {
+  const { base, close } = await boot();
+  try {
+    const r = await fetch(base + '/fonts/JetBrainsMono-Regular.woff2');
+    assert.equal(r.status, 200); assert.equal(r.headers.get('content-type'), 'font/woff2');
+  } finally { await close(); }
+});
