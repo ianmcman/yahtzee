@@ -10,6 +10,9 @@
   // Application State
   let game = null;
   let isRollingAnimation = false;
+  let landing = new Set();
+  let botTimer = null;
+  let botPhase = 'hold';
   let isOnlineMode = false;
   let onlineView = null;
   let onOnlineAction = null;
@@ -34,6 +37,7 @@
   const setupForm = document.getElementById('setup-form');
   const playerInputsContainer = document.getElementById('player-inputs-container');
   const btnAddPlayer = document.getElementById('btn-add-player');
+  const btnPlayBot = document.getElementById('btn-play-bot');
 
   // DOM Elements - Game Screen
   const btnGameMenu = document.getElementById('btn-game-menu');
@@ -316,7 +320,7 @@
     }
 
     const curPlayer = curGame.players[curGame.current];
-    const isMyTurn = isOnlineMode ? (onlineView.you === curGame.current) : true;
+    const isMyTurn = isOnlineMode ? (onlineView.you === curGame.current) : !curPlayer.bot;
     const isReadOnly = isOnlineMode
       ? (displayedPlayerIndex !== onlineView.you)
       : (displayedPlayerIndex !== curGame.current);
@@ -490,14 +494,14 @@
       const slot = document.createElement('div');
       slot.className = 'recessed-slot';
 
-      if (curGame.rollsLeft < 3) {
+      if (curGame.rollsLeft < 3 || isRollingAnimation) {
         const val = curGame.dice[i] || 1;
         const isHeld = Boolean(curGame.held[i]);
         const canHold = !isReadOnly && isMyTurn && curGame.rollsLeft > 0 && !isRollingAnimation;
 
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = `die-btn ${isHeld ? 'is-held' : ''} ${isRollingAnimation && !isHeld ? 'is-rolling' : ''}`;
+        btn.className = `die-btn ${isHeld ? 'is-held' : ''} ${isRollingAnimation && !isHeld ? 'is-rolling' : ''} ${landing.has(i) ? 'die-land' : ''}`;
         btn.setAttribute('data-index', i);
         btn.setAttribute('aria-pressed', isHeld ? 'true' : 'false');
         btn.disabled = !canHold;
@@ -568,48 +572,99 @@
         rollInstructionEl.textContent = 'Tap dice to hold, or Roll again.';
       }
     }
+
+    if (!isOnlineMode) maybeBotTurn();
   }
 
   // --- Turn Actions ---
 
-  function handleRoll() {
-    if (!game || game.rollsLeft <= 0 || isRollingAnimation) return;
+  function setFace(btn, val) {
+    const active = window.YahtzeeUI.pipLayout(val);
+    btn.querySelectorAll('.pip').forEach((pip, p) => {
+      pip.className = active.includes(p) ? 'pip pip-black' : 'pip pip-empty';
+    });
+  }
 
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Rolls the game dice, then tumbles the unheld ones and settles them left to right.
+  function animateRoll(done) {
+    const rolled = game.held.map((h, i) => (h ? -1 : i)).filter(i => i >= 0);
+    window.YahtzeeGame.roll(game);
+    statusMessageEl.textContent = '';
+    saveCurrentGameState();
 
-    if (prefersReducedMotion) {
-      window.YahtzeeGame.roll(game);
-      statusMessageEl.textContent = '';
-      saveCurrentGameState();
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       renderGame();
+      if (done) done();
       return;
     }
 
     isRollingAnimation = true;
-    btnRoll.disabled = true;
-
-    const dieButtons = diceContainer.querySelectorAll('.die-btn:not(.is-held)');
-    dieButtons.forEach(btn => btn.classList.add('is-rolling'));
-
-    const interval = setInterval(() => {
-      dieButtons.forEach(btn => {
-        const rand = Math.floor(Math.random() * 6) + 1;
-        const activePips = window.YahtzeeUI.pipLayout(rand);
-        const pips = btn.querySelectorAll('.pip');
-        pips.forEach((pip, p) => {
-          pip.className = activePips.includes(p) ? 'pip pip-black' : 'pip pip-empty';
-        });
+    renderGame();
+    const final = game.dice.slice();
+    const stopAt = {};
+    rolled.forEach((d, n) => { stopAt[d] = 450 + n * 110; });
+    const start = Date.now();
+    const tick = () => {
+      const t = Date.now() - start;
+      diceContainer.querySelectorAll('.die-btn').forEach(btn => {
+        const i = Number(btn.getAttribute('data-index'));
+        if (!(i in stopAt)) return;
+        if (t >= stopAt[i]) {
+          if (btn.classList.contains('is-rolling')) {
+            btn.classList.remove('is-rolling');
+            setFace(btn, final[i]);
+          }
+        } else {
+          setFace(btn, Math.floor(Math.random() * 6) + 1);
+        }
       });
-    }, 60);
-
+    };
+    tick();
+    const interval = setInterval(tick, 70);
     setTimeout(() => {
       clearInterval(interval);
       isRollingAnimation = false;
-      window.YahtzeeGame.roll(game);
-      statusMessageEl.textContent = '';
-      saveCurrentGameState();
+      landing = new Set(rolled);
       renderGame();
-    }, 300);
+      landing = new Set();
+      if (done) done();
+    }, 450 + rolled.length * 110 + 60);
+  }
+
+  function handleRoll() {
+    if (!game || game.rollsLeft <= 0 || isRollingAnimation) return;
+    btnRoll.disabled = true;
+    animateRoll();
+  }
+
+  // --- Bot ---
+
+  function maybeBotTurn() {
+    if (botTimer || isRollingAnimation || !game || screenGame.hidden) return;
+    if (window.YahtzeeGame.isOver(game) || !game.players[game.current].bot) return;
+    const gameRef = game;
+    botTimer = setTimeout(() => {
+      botTimer = null;
+      if (game === gameRef && !screenGame.hidden) botStep();
+    }, 750);
+  }
+
+  function botStep() {
+    const g = game;
+    if (g.rollsLeft === 3) {
+      botPhase = 'hold';
+      animateRoll();
+    } else if (g.rollsLeft === 0) {
+      handleScoreCategory(window.YahtzeeBot.bestCategory(g));
+    } else if (botPhase === 'hold') {
+      g.held = window.YahtzeeBot.chooseHolds(g);
+      botPhase = 'act';
+      renderGame();
+    } else {
+      botPhase = 'hold';
+      if (g.held.every(Boolean)) handleScoreCategory(window.YahtzeeBot.bestCategory(g));
+      else animateRoll();
+    }
   }
 
   function handleScoreCategory(catId) {
@@ -731,6 +786,20 @@
 
       safeSetStorage(STORAGE_KEYS.LAST_NAMES, finalNames);
       game = window.YahtzeeGame.newGame(finalNames);
+      displayedPlayerIndex = 0;
+      lastTurnSeen = 0;
+      saveCurrentGameState();
+      showScreen('game');
+      renderGame();
+    });
+
+    // Play against the bot
+    btnPlayBot.addEventListener('click', () => {
+      const name = (getCurrentInputValues()[0] || '').trim() || 'Player 1';
+      safeSetStorage(STORAGE_KEYS.LAST_NAMES, [name]);
+      game = window.YahtzeeGame.newGame([name, 'Bot']);
+      game.players[1].bot = true;
+      botPhase = 'hold';
       displayedPlayerIndex = 0;
       lastTurnSeen = 0;
       saveCurrentGameState();
@@ -878,7 +947,10 @@
     btnPlayAgain.addEventListener('click', () => {
       if (!game) return;
       const names = game.players.map(p => p.name);
+      const bots = game.players.map(p => Boolean(p.bot));
       game = window.YahtzeeGame.newGame(names);
+      game.players.forEach((p, i) => { if (bots[i]) p.bot = true; });
+      botPhase = 'hold';
       displayedPlayerIndex = 0;
       lastTurnSeen = 0;
       saveCurrentGameState();

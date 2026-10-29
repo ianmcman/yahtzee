@@ -812,12 +812,29 @@ body {
   100% { transform: translateY(0) rotate(0deg); }
 }
 
+@keyframes dice-tumble {
+  0% { transform: translateY(0) rotate(0deg) scale(1); }
+  25% { transform: translateY(-14px) rotate(100deg) scale(1.08); }
+  50% { transform: translateY(0) rotate(190deg) scale(1); }
+  75% { transform: translateY(-8px) rotate(280deg) scale(1.05); }
+  100% { transform: translateY(0) rotate(360deg) scale(1); }
+}
+@keyframes dice-land {
+  0% { transform: translateY(-10px) scale(1.12); }
+  55% { transform: translateY(2px) scale(0.96); }
+  100% { transform: translateY(0) scale(1); }
+}
+
 .die-btn.is-rolling {
-  animation: dice-roll-shake 300ms ease;
+  animation: dice-tumble 380ms linear infinite;
+}
+.die-btn.die-land {
+  animation: dice-land 260ms ease-out;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .die-btn.is-rolling,
+  .die-btn.die-land,
   .score-pop,
   .score-cell.hint-pulse {
     animation: none !important;

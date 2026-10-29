@@ -1,4 +1,4 @@
-const CACHE = 'yahtzee-v4';
+const CACHE = 'yahtzee-v5';
 const PRECACHE = [
   '/',
   '/index.html',
@@ -10,6 +10,7 @@ const PRECACHE = [
   '/score.js',
   '/game.js',
   '/ui-model.js',
+  '/bot.js',
   '/manifest.webmanifest',
   '/fonts/JetBrainsMono-Regular.woff2',
   '/icons/icon-192.png',

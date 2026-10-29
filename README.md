@@ -12,6 +12,8 @@ Live at https://yahtzee.ianmcmanus.net
 - Hot-seat play for 1 to 4 players. A game in progress is saved in the browser and can be resumed.
 - Online rooms for 2 to 4 players. Share the code or an invite link; the server enforces turns and everyone sees the board update live.
 - Accounts and leaderboards. Anyone can register with a username and password; guests can still play. Ranked games (online, at least two signed-in players) feed boards for wins, win rate, best score and Yahtzees, all-time or this week, plus a profile page.
+- Play against a computer opponent (Play vs Bot). It rolls, holds and scores on its own, averaging about 220 points.
+- Animated dice: they tumble and settle one after another.
 - Tap a player's badge to look at their scorecard. A Hint button highlights the best open category.
 - Installable as a PWA on Android and iOS. After the first visit, hot-seat play works with no network.
 - Monokai theme with JetBrains Mono, matching the author's other homelab apps.
@@ -52,6 +54,7 @@ Uses the built-in `node:test` runner. The tests cover scoring, game state, the r
 | `site/score.js` | Scoring rules. Runs in the browser and in Node. |
 | `site/game.js` | Game state: rolls, holds, turns, winner. Pure functions. |
 | `site/ui-model.js` | Tile layout, pip positions and bonus progress for the UI. |
+| `site/bot.js` | Bot strategy: picks holds by sampling rerolls and scores by value over a typical card. |
 | `site/app.js`, `site/online.js` | Rendering, hot-seat mode and the online client. |
 | `site/sw.js`, `site/pwa.js`, `site/manifest.webmanifest` | PWA service worker, its registration, and the manifest. |
 | `server/rooms.js` | In-memory room store. Runs `game.js` as the referee. |
