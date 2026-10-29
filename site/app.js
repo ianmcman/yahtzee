@@ -1,27 +1,11 @@
 (function () {
   'use strict';
 
-  // Constants & Category Definitions
+  // Constants & Storage Keys
   const STORAGE_KEYS = {
     LAST_NAMES: 'yahtzee_last_player_names',
     SAVED_GAME: 'yahtzee_saved_game_state'
   };
-
-  const CATEGORIES_INFO = [
-    { id: 'ones', name: 'Aces (1s)', section: 'upper', desc: 'Sum of 1s' },
-    { id: 'twos', name: 'Twos (2s)', section: 'upper', desc: 'Sum of 2s' },
-    { id: 'threes', name: 'Threes (3s)', section: 'upper', desc: 'Sum of 3s' },
-    { id: 'fours', name: 'Fours (4s)', section: 'upper', desc: 'Sum of 4s' },
-    { id: 'fives', name: 'Fives (5s)', section: 'upper', desc: 'Sum of 5s' },
-    { id: 'sixes', name: 'Sixes (6s)', section: 'upper', desc: 'Sum of 6s' },
-    { id: 'threeKind', name: '3 of a Kind', section: 'lower', desc: 'Sum of all dice' },
-    { id: 'fourKind', name: '4 of a Kind', section: 'lower', desc: 'Sum of all dice' },
-    { id: 'fullHouse', name: 'Full House', section: 'lower', desc: '25 points' },
-    { id: 'smallStraight', name: 'Small Straight', section: 'lower', desc: '30 points' },
-    { id: 'largeStraight', name: 'Large Straight', section: 'lower', desc: '40 points' },
-    { id: 'yahtzee', name: 'Yahtzee', section: 'lower', desc: '50 points' },
-    { id: 'chance', name: 'Chance', section: 'lower', desc: 'Sum of all dice' }
-  ];
 
   // Application State
   let game = null;
@@ -31,14 +15,18 @@
   let onOnlineAction = null;
   let onOnlineLeave = null;
 
-  // DOM Elements
+  // Board Owner State
+  let displayedPlayerIndex = null;
+  let lastTurnSeen = null;
+
+  // DOM Elements - Screens
   const screenStart = document.getElementById('screen-start');
   const screenOnline = document.getElementById('screen-online');
   const screenLobby = document.getElementById('screen-lobby');
   const screenGame = document.getElementById('screen-game');
   const screenEnd = document.getElementById('screen-end');
 
-  // Start Screen Elements
+  // DOM Elements - Start Screen
   const resumeBanner = document.getElementById('resume-banner');
   const resumeDetails = document.getElementById('resume-details');
   const btnResumeGame = document.getElementById('btn-resume-game');
@@ -47,18 +35,31 @@
   const playerInputsContainer = document.getElementById('player-inputs-container');
   const btnAddPlayer = document.getElementById('btn-add-player');
 
-  // Game Screen Elements
+  // DOM Elements - Game Screen
+  const btnGameMenu = document.getElementById('btn-game-menu');
+  const topBarPlayers = document.getElementById('top-bar-players');
   const currentPlayerNameEl = document.getElementById('current-player-name');
   const statusMessageEl = document.getElementById('status-message');
-  const btnQuitGame = document.getElementById('btn-quit-game');
+  const readOnlyBanner = document.getElementById('read-only-banner');
+  const boardLeftColumn = document.getElementById('board-left-column');
+  const boardRightColumn = document.getElementById('board-right-column');
   const diceContainer = document.getElementById('dice-container');
   const btnRoll = document.getElementById('btn-roll');
-  const rollsLeftCountEl = document.getElementById('rolls-left-count');
+  const rollChipsEl = document.getElementById('roll-chips');
   const rollInstructionEl = document.getElementById('roll-instruction');
-  const scorecardHeadRow = document.getElementById('scorecard-head-row');
-  const scorecardBody = document.getElementById('scorecard-body');
+  const btnHint = document.getElementById('btn-hint');
+  const btnRules = document.getElementById('btn-rules');
 
-  // End Screen Elements
+  // DOM Elements - Dialogs
+  const gearMenuDialog = document.getElementById('gear-menu-dialog');
+  const btnQuitGame = document.getElementById('btn-quit-game');
+  const btnMenuRules = document.getElementById('btn-menu-rules');
+  const btnCloseMenu = document.getElementById('btn-close-menu');
+  const rulesDialog = document.getElementById('rules-dialog');
+  const btnCloseRules = document.getElementById('btn-close-rules');
+  const btnCloseRulesBottom = document.getElementById('btn-close-rules-bottom');
+
+  // DOM Elements - End Screen
   const winnerBanner = document.getElementById('winner-banner');
   const standingsBody = document.getElementById('standings-body');
   const btnPlayAgain = document.getElementById('btn-play-again');
@@ -79,7 +80,7 @@
     try {
       localStorage.setItem(key, JSON.stringify(value));
     } catch {
-      // Ignore quota or privacy exceptions
+      // Ignore quota exceptions
     }
   }
 
@@ -102,6 +103,10 @@
 
   // --- Screen Switching ---
   function showScreen(screen) {
+    const appHeader = document.querySelector('.app-header');
+    if (appHeader) {
+      appHeader.hidden = (screen === 'game');
+    }
     screenStart.hidden = screen !== 'start';
     if (screenOnline) screenOnline.hidden = screen !== 'online';
     if (screenLobby) screenLobby.hidden = screen !== 'lobby';
@@ -183,247 +188,390 @@
     }
   }
 
-  // --- SVG Die Renderer ---
-  function getDieSvg(value) {
-    const pips = {
-      1: [[30, 30]],
-      2: [[18, 18], [42, 42]],
-      3: [[18, 18], [30, 30], [42, 42]],
-      4: [[18, 18], [42, 18], [18, 42], [42, 42]],
-      5: [[18, 18], [42, 18], [30, 30], [18, 42], [42, 42]],
-      6: [[18, 18], [42, 18], [18, 30], [42, 30], [18, 42], [42, 42]]
-    };
-    const coords = pips[value] || [];
-    const circles = coords.map(([cx, cy]) => `<circle cx="${cx}" cy="${cy}" r="4.5" class="die-pip" />`).join('');
-    return `
-      <svg viewBox="0 0 60 60" width="46" height="46" aria-hidden="true" focusable="false" class="die-face">
-        <rect x="3" y="3" width="54" height="54" rx="10" class="die-bg" />
-        ${circles}
-      </svg>
-    `;
+  // --- Element Builders (Pure DOM, No Inline Styles) ---
+
+  function createUpperTileElement(face) {
+    const tile = document.createElement('button');
+    tile.type = 'button';
+    tile.className = 'red-tile red-tile-upper';
+    tile.setAttribute('aria-hidden', 'true');
+    tile.tabIndex = -1;
+
+    const grid = document.createElement('div');
+    grid.className = 'pip-grid';
+    const activePips = window.YahtzeeUI.pipLayout(face);
+    for (let p = 0; p < 9; p++) {
+      const pip = document.createElement('span');
+      pip.className = activePips.includes(p) ? 'pip pip-white' : 'pip pip-empty';
+      grid.appendChild(pip);
+    }
+    tile.appendChild(grid);
+    return tile;
+  }
+
+  function createLowerTileElement(cat) {
+    const tileInfo = window.YahtzeeUI.TILES[cat];
+    const tile = document.createElement('button');
+    tile.type = 'button';
+    tile.className = 'red-tile red-tile-lower';
+    tile.setAttribute('aria-hidden', 'true');
+    tile.tabIndex = -1;
+
+    if (tileInfo.kind === 'icon') {
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('viewBox', '0 0 24 24');
+      svg.setAttribute('width', '24');
+      svg.setAttribute('height', '24');
+      svg.setAttribute('fill', '#ffffff');
+      svg.setAttribute('class', 'tile-icon-svg');
+      svg.setAttribute('aria-hidden', 'true');
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', 'M12 3L2 12h3v8h6v-5h2v5h6v-8h3z');
+      svg.appendChild(path);
+      tile.appendChild(svg);
+    } else {
+      const span = document.createElement('span');
+      span.className = `tile-text tile-text-${cat}`;
+      span.textContent = tileInfo.text;
+      tile.appendChild(span);
+    }
+
+    return tile;
+  }
+
+  function createBonusRowElement(card) {
+    const prog = window.YahtzeeUI.upperProgress(card);
+    const row = document.createElement('div');
+    row.className = `bonus-row ${prog.bonusEarned ? 'bonus-earned' : ''}`;
+
+    const labels = document.createElement('div');
+    labels.className = 'bonus-label-group';
+    const tag = document.createElement('span');
+    tag.className = 'bonus-text-label';
+    tag.textContent = 'BONUS';
+    const pts = document.createElement('span');
+    pts.className = `bonus-points-label ${prog.bonusEarned ? 'earned' : ''}`;
+    pts.textContent = '+35';
+    labels.appendChild(tag);
+    labels.appendChild(pts);
+    row.appendChild(labels);
+
+    const ringWrap = document.createElement('div');
+    ringWrap.className = 'bonus-ring-wrap';
+    ringWrap.setAttribute('aria-label', `Upper bonus progress: ${prog.sum} of 63 points`);
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'bonus-ring-svg');
+    svg.setAttribute('viewBox', '0 0 36 36');
+    svg.setAttribute('width', '36');
+    svg.setAttribute('height', '36');
+    svg.setAttribute('aria-hidden', 'true');
+
+    const bgCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    bgCircle.setAttribute('cx', '18');
+    bgCircle.setAttribute('cy', '18');
+    bgCircle.setAttribute('r', '15');
+    bgCircle.setAttribute('fill', 'none');
+    bgCircle.setAttribute('stroke', 'rgba(0, 0, 0, 0.35)');
+    bgCircle.setAttribute('stroke-width', '3');
+    svg.appendChild(bgCircle);
+
+    const fillCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    fillCircle.setAttribute('cx', '18');
+    fillCircle.setAttribute('cy', '18');
+    fillCircle.setAttribute('r', '15');
+    fillCircle.setAttribute('fill', 'none');
+    fillCircle.setAttribute('stroke', prog.bonusEarned ? '#fbbf24' : '#ffffff');
+    fillCircle.setAttribute('stroke-width', '3');
+    fillCircle.setAttribute('stroke-dasharray', '94.25');
+    const offset = 94.25 * (1 - Math.min(1, prog.sum / 63));
+    fillCircle.setAttribute('stroke-dashoffset', offset.toFixed(2));
+    fillCircle.setAttribute('stroke-linecap', 'round');
+    svg.appendChild(fillCircle);
+    ringWrap.appendChild(svg);
+
+    const frac = document.createElement('span');
+    frac.className = 'bonus-fraction';
+    frac.textContent = `${prog.sum}/63`;
+    ringWrap.appendChild(frac);
+
+    row.appendChild(ringWrap);
+    return row;
   }
 
   // --- Game Rendering ---
+
   function renderGame() {
     const curGame = isOnlineMode ? (onlineView && onlineView.game) : game;
     if (!curGame) return;
 
+    // Detect turn advancement to reset displayed card to owner
+    if (lastTurnSeen !== curGame.current) {
+      lastTurnSeen = curGame.current;
+      displayedPlayerIndex = isOnlineMode ? onlineView.you : curGame.current;
+    }
+
+    if (displayedPlayerIndex === null || displayedPlayerIndex >= curGame.players.length) {
+      displayedPlayerIndex = isOnlineMode ? onlineView.you : curGame.current;
+    }
+
     const curPlayer = curGame.players[curGame.current];
     const isMyTurn = isOnlineMode ? (onlineView.you === curGame.current) : true;
+    const isReadOnly = isOnlineMode
+      ? (displayedPlayerIndex !== onlineView.you)
+      : (displayedPlayerIndex !== curGame.current);
 
     currentPlayerNameEl.textContent = curPlayer.name;
     btnQuitGame.textContent = isOnlineMode ? 'Leave Room' : 'New Game';
 
-    // Rolls Left and Roll button
-    rollsLeftCountEl.textContent = curGame.rollsLeft;
+    // 1. Top Bar: Player Badges
+    topBarPlayers.innerHTML = '';
+    curGame.players.forEach((player, idx) => {
+      const isViewing = (idx === displayedPlayerIndex);
+      const isTurn = (idx === curGame.current);
+      const totals = window.YahtzeeScore.totals(player.card);
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `player-badge-btn ${isViewing ? 'is-viewing' : ''}`;
+      btn.setAttribute('data-player-index', idx);
+
+      const turnLabel = isTurn ? ', current turn' : '';
+      const viewLabel = isViewing ? ', viewing card' : '';
+      btn.setAttribute('aria-label', `${player.name}, score ${totals.total}${turnLabel}${viewLabel}`);
+
+      const avatar = document.createElement('span');
+      avatar.className = `badge-avatar ${isViewing ? 'avatar-glow' : ''}`;
+      avatar.textContent = window.YahtzeeUI.initials(player.name);
+
+      const pill = document.createElement('span');
+      pill.className = `badge-score-pill ${isTurn ? 'pill-turn' : 'pill-other'}`;
+      pill.textContent = String(totals.total);
+
+      btn.appendChild(avatar);
+      btn.appendChild(pill);
+
+      btn.addEventListener('click', () => {
+        displayedPlayerIndex = idx;
+        renderGame();
+      });
+
+      topBarPlayers.appendChild(btn);
+    });
+
+    // 2. Read-only Banner
+    if (isReadOnly) {
+      readOnlyBanner.hidden = false;
+      const targetName = curGame.players[displayedPlayerIndex].name;
+      readOnlyBanner.textContent = `Viewing ${targetName}'s scorecard (Read-only)`;
+    } else {
+      readOnlyBanner.hidden = true;
+      readOnlyBanner.textContent = '';
+    }
+
+    // 3. Board: Left & Right Columns
+    const displayedPlayer = curGame.players[displayedPlayerIndex];
+    const card = displayedPlayer.card;
+    const canScore = !isReadOnly && isMyTurn && curGame.rollsLeft < 3 && !isRollingAnimation;
+
+    // Left Column: Upper categories + Bonus row
+    boardLeftColumn.innerHTML = '';
+    window.YahtzeeUI.LAYOUT.left.forEach(cat => {
+      const tileInfo = window.YahtzeeUI.TILES[cat];
+      const row = document.createElement('div');
+      row.className = 'board-row';
+
+      const tile = createUpperTileElement(tileInfo.face);
+      const scoreVal = card[cat];
+
+      let cell;
+      if (scoreVal !== undefined) {
+        // Scored category: solid dark text, not a button
+        cell = document.createElement('div');
+        cell.className = 'score-cell cell-scored';
+        cell.setAttribute('aria-label', `${tileInfo.label}, scored ${scoreVal}`);
+        const span = document.createElement('span');
+        span.className = 'score-text score-solid';
+        span.textContent = String(scoreVal);
+        cell.appendChild(span);
+      } else if (canScore) {
+        // Open category during active play: button with faded score
+        const pot = window.YahtzeeScore.scoreCategory(cat, curGame.dice);
+        cell = document.createElement('button');
+        cell.type = 'button';
+        cell.className = 'score-cell cell-open';
+        cell.setAttribute('data-category', cat);
+        cell.setAttribute('aria-label', `${tileInfo.label}, scores ${pot}`);
+        const span = document.createElement('span');
+        span.className = 'score-text score-faded';
+        span.textContent = String(pot);
+        cell.appendChild(span);
+
+        cell.addEventListener('click', () => {
+          cell.classList.add('score-pop');
+          setTimeout(() => handleScoreCategory(cat), 100);
+        });
+        tile.disabled = false;
+        tile.addEventListener('click', () => {
+          cell.classList.add('score-pop');
+          setTimeout(() => handleScoreCategory(cat), 100);
+        });
+      } else {
+        // Open category when read-only / before rolling: empty, not a button
+        cell = document.createElement('div');
+        cell.className = 'score-cell cell-open cell-disabled';
+        cell.setAttribute('aria-label', `${tileInfo.label}, open`);
+        tile.disabled = true;
+      }
+
+      row.appendChild(tile);
+      row.appendChild(cell);
+      boardLeftColumn.appendChild(row);
+    });
+
+    // Bonus row at bottom of left column
+    boardLeftColumn.appendChild(createBonusRowElement(card));
+
+    // Right Column: Lower categories
+    boardRightColumn.innerHTML = '';
+    window.YahtzeeUI.LAYOUT.right.forEach(cat => {
+      const tileInfo = window.YahtzeeUI.TILES[cat];
+      const row = document.createElement('div');
+      row.className = 'board-row';
+
+      const tile = createLowerTileElement(cat);
+      const scoreVal = card[cat];
+
+      let cell;
+      if (scoreVal !== undefined) {
+        cell = document.createElement('div');
+        cell.className = 'score-cell cell-scored';
+        cell.setAttribute('aria-label', `${tileInfo.label}, scored ${scoreVal}`);
+        const span = document.createElement('span');
+        span.className = 'score-text score-solid';
+        span.textContent = String(scoreVal);
+        cell.appendChild(span);
+      } else if (canScore) {
+        const pot = window.YahtzeeScore.scoreCategory(cat, curGame.dice);
+        cell = document.createElement('button');
+        cell.type = 'button';
+        cell.className = 'score-cell cell-open';
+        cell.setAttribute('data-category', cat);
+        cell.setAttribute('aria-label', `${tileInfo.label}, scores ${pot}`);
+        const span = document.createElement('span');
+        span.className = 'score-text score-faded';
+        span.textContent = String(pot);
+        cell.appendChild(span);
+
+        cell.addEventListener('click', () => {
+          cell.classList.add('score-pop');
+          setTimeout(() => handleScoreCategory(cat), 100);
+        });
+        tile.disabled = false;
+        tile.addEventListener('click', () => {
+          cell.classList.add('score-pop');
+          setTimeout(() => handleScoreCategory(cat), 100);
+        });
+      } else {
+        cell = document.createElement('div');
+        cell.className = 'score-cell cell-open cell-disabled';
+        cell.setAttribute('aria-label', `${tileInfo.label}, open`);
+        tile.disabled = true;
+      }
+
+      row.appendChild(tile);
+      row.appendChild(cell);
+      boardRightColumn.appendChild(row);
+    });
+
+    // 4. Dice Tray: 5 recessed slots
+    diceContainer.innerHTML = '';
+    for (let i = 0; i < 5; i++) {
+      const slot = document.createElement('div');
+      slot.className = 'recessed-slot';
+
+      if (curGame.rollsLeft < 3) {
+        const val = curGame.dice[i] || 1;
+        const isHeld = Boolean(curGame.held[i]);
+        const canHold = !isReadOnly && isMyTurn && curGame.rollsLeft > 0 && !isRollingAnimation;
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `die-btn ${isHeld ? 'is-held' : ''} ${isRollingAnimation && !isHeld ? 'is-rolling' : ''}`;
+        btn.setAttribute('data-index', i);
+        btn.setAttribute('aria-pressed', isHeld ? 'true' : 'false');
+        btn.disabled = !canHold;
+
+        const heldLabel = isHeld ? 'held' : 'not held';
+        btn.setAttribute('aria-label', `Die ${i + 1}: ${val}, ${heldLabel}`);
+
+        const activePips = window.YahtzeeUI.pipLayout(val);
+        for (let p = 0; p < 9; p++) {
+          const pip = document.createElement('span');
+          pip.className = activePips.includes(p) ? 'pip pip-black' : 'pip pip-empty';
+          btn.appendChild(pip);
+        }
+
+        if (isHeld) {
+          const badge = document.createElement('span');
+          badge.className = 'die-held-label';
+          badge.textContent = 'HELD';
+          btn.appendChild(badge);
+        }
+
+        btn.addEventListener('click', () => {
+          if (!canHold) return;
+          if (isOnlineMode) {
+            if (onOnlineAction) onOnlineAction({ type: 'hold', index: i });
+          } else {
+            window.YahtzeeGame.toggleHold(game, i);
+            saveCurrentGameState();
+            renderGame();
+          }
+        });
+
+        slot.appendChild(btn);
+      }
+
+      diceContainer.appendChild(slot);
+    }
+
+    // 5. Roll Button & Status Line
+    rollChipsEl.innerHTML = '';
+    const chips = window.YahtzeeUI.rollPips(curGame.rollsLeft);
+    chips.forEach(chip => {
+      const chipEl = document.createElement('span');
+      chipEl.className = `roll-chip ${chip.used ? 'chip-used' : 'chip-unused'}`;
+      chipEl.textContent = String(chip.n);
+      rollChipsEl.appendChild(chipEl);
+    });
+
+    btnRoll.setAttribute('aria-label', `Roll dice (${curGame.rollsLeft} rolls left)`);
 
     if (!isMyTurn) {
       btnRoll.disabled = true;
-      btnRoll.textContent = `Waiting for ${curPlayer.name}…`;
-      rollInstructionEl.textContent = `Waiting for ${curPlayer.name} to take their turn.`;
+      rollInstructionEl.textContent = `Waiting for ${curPlayer.name}…`;
       statusMessageEl.textContent = `Waiting for ${curPlayer.name}…`;
+    } else if (isReadOnly) {
+      btnRoll.disabled = true;
+      rollInstructionEl.textContent = `Viewing ${curGame.players[displayedPlayerIndex].name}'s scorecard (Read-only)`;
     } else {
       statusMessageEl.textContent = '';
       if (curGame.rollsLeft === 0) {
         btnRoll.disabled = true;
-        btnRoll.textContent = 'No rolls left (Score a category)';
-        rollInstructionEl.textContent = 'Choose a category to score.';
+        rollInstructionEl.textContent = 'Pick a category';
       } else if (curGame.rollsLeft === 3) {
         btnRoll.disabled = isRollingAnimation;
-        btnRoll.innerHTML = `Roll (<span id="rolls-left-count">${curGame.rollsLeft}</span> left)`;
-        rollInstructionEl.textContent = 'Roll the dice to start your turn.';
+        rollInstructionEl.textContent = 'Roll to start your turn.';
       } else {
         btnRoll.disabled = isRollingAnimation;
-        btnRoll.innerHTML = `Roll (<span id="rolls-left-count">${curGame.rollsLeft}</span> left)`;
-        rollInstructionEl.textContent = 'Tap dice to keep or re-roll, or choose a category.';
+        rollInstructionEl.textContent = 'Tap dice to hold, or Roll again.';
       }
     }
-
-    // Render Dice
-    diceContainer.innerHTML = '';
-    for (let i = 0; i < 5; i++) {
-      const val = curGame.dice[i] || 1;
-      const isHeld = Boolean(curGame.held[i]);
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = `die-btn ${isHeld ? 'is-held' : ''}`;
-      btn.setAttribute('data-index', i);
-      btn.setAttribute('aria-pressed', isHeld ? 'true' : 'false');
-
-      // Cannot hold before rolling or when 0 rolls left or during animation or when not your turn
-      const canHold = isMyTurn && curGame.rollsLeft < 3 && curGame.rollsLeft > 0 && !isRollingAnimation;
-      btn.disabled = !canHold;
-
-      const heldLabel = isHeld ? 'held' : 'not held';
-      btn.setAttribute('aria-label', `Die ${i + 1}: ${val}, ${heldLabel}`);
-
-      btn.innerHTML = `
-        ${getDieSvg(val)}
-        <span class="die-badge">${isHeld ? 'HELD' : 'KEEP'}</span>
-      `;
-
-      btn.addEventListener('click', () => {
-        if (!canHold) return;
-        if (isOnlineMode) {
-          if (onOnlineAction) onOnlineAction({ type: 'hold', index: i });
-        } else {
-          window.YahtzeeGame.toggleHold(game, i);
-          saveCurrentGameState();
-          renderGame();
-        }
-      });
-
-      diceContainer.appendChild(btn);
-    }
-
-    renderScorecard();
-  }
-
-  function renderScorecard() {
-    const curGame = isOnlineMode ? (onlineView && onlineView.game) : game;
-    if (!curGame) return;
-
-    const isMyTurn = isOnlineMode ? (onlineView.you === curGame.current) : true;
-
-    // Render Header
-    scorecardHeadRow.innerHTML = '<th scope="col" class="col-category">Category</th>';
-    curGame.players.forEach((player, idx) => {
-      const th = document.createElement('th');
-      th.scope = 'col';
-      const isCurrent = idx === curGame.current;
-      if (isCurrent) {
-        th.classList.add('col-current');
-        th.setAttribute('aria-current', 'true');
-        th.textContent = player.name + ' ';
-        const ind = document.createElement('span');
-        ind.className = 'current-indicator';
-        ind.setAttribute('aria-hidden', 'true');
-        ind.textContent = '◀';
-        th.appendChild(ind);
-      } else {
-        th.textContent = player.name;
-      }
-      scorecardHeadRow.appendChild(th);
-    });
-
-    // Render Body
-    scorecardBody.innerHTML = '';
-
-    // Upper Categories
-    const upperCats = CATEGORIES_INFO.filter(c => c.section === 'upper');
-    upperCats.forEach(cat => {
-      scorecardBody.appendChild(createCategoryRow(cat, curGame, isMyTurn));
-    });
-
-    // Upper Subtotal Row
-    scorecardBody.appendChild(createSummaryRow('Upper Subtotal', (card) => {
-      return window.YahtzeeScore.totals(card).upper;
-    }, 'row-subtotal', curGame));
-
-    // Upper Bonus Row
-    scorecardBody.appendChild(createSummaryRow('Upper Bonus (63+)', (card) => {
-      return window.YahtzeeScore.totals(card).bonus;
-    }, 'row-bonus', curGame));
-
-    // Lower Categories
-    const lowerCats = CATEGORIES_INFO.filter(c => c.section === 'lower');
-    lowerCats.forEach(cat => {
-      scorecardBody.appendChild(createCategoryRow(cat, curGame, isMyTurn));
-    });
-
-    // Yahtzee Bonus Row
-    scorecardBody.appendChild(createSummaryRow('Yahtzee Bonus', (card) => {
-      return (card.yahtzeeBonus || 0) * 100;
-    }, 'row-bonus', curGame));
-
-    // Grand Total Row
-    scorecardBody.appendChild(createSummaryRow('Grand Total', (card) => {
-      return window.YahtzeeScore.totals(card).total;
-    }, 'row-grand-total', curGame));
-  }
-
-  function createCategoryRow(cat, curGame, isMyTurn) {
-    const tr = document.createElement('tr');
-
-    const th = document.createElement('th');
-    th.scope = 'row';
-    th.className = 'col-category';
-    th.textContent = cat.name;
-    tr.appendChild(th);
-
-    curGame.players.forEach((player, pIdx) => {
-      const td = document.createElement('td');
-      const isCurrent = pIdx === curGame.current;
-      if (isCurrent) {
-        td.classList.add('col-current');
-      }
-
-      const scoreVal = player.card[cat.id];
-      if (scoreVal !== undefined) {
-        // Already scored
-        td.innerHTML = `<span class="score-used">${scoreVal}</span>`;
-      } else if (isCurrent) {
-        // Open category for current player
-        if (curGame.rollsLeft === 3 || isRollingAnimation || !isMyTurn) {
-          // Must roll first or rolling or not player's turn
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          btn.className = 'btn-score-disabled';
-          btn.disabled = true;
-          btn.textContent = '—';
-          btn.setAttribute('aria-label', `${cat.name}: not available`);
-          td.appendChild(btn);
-        } else {
-          // Has rolled & is current player's turn: show potential score as button
-          const potentialScore = window.YahtzeeScore.scoreCategory(cat.id, curGame.dice);
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          btn.className = 'btn-score-available';
-          btn.textContent = String(potentialScore);
-          btn.setAttribute('aria-label', `Score ${potentialScore} in ${cat.name}`);
-          btn.addEventListener('click', () => {
-            if (isOnlineMode) {
-              if (onOnlineAction) onOnlineAction({ type: 'score', category: cat.id });
-            } else {
-              handleScoreCategory(cat.id);
-            }
-          });
-          td.appendChild(btn);
-        }
-      } else {
-        // Open for another player
-        td.innerHTML = '<span class="score-empty" aria-label="Not scored yet">—</span>';
-      }
-
-      tr.appendChild(td);
-    });
-
-    return tr;
-  }
-
-  function createSummaryRow(title, getValueFn, rowClass, curGame) {
-    const tr = document.createElement('tr');
-    if (rowClass) tr.className = rowClass;
-
-    const th = document.createElement('th');
-    th.scope = 'row';
-    th.className = 'col-category';
-    th.textContent = title;
-    tr.appendChild(th);
-
-    curGame.players.forEach((player, pIdx) => {
-      const td = document.createElement('td');
-      if (pIdx === curGame.current) {
-        td.classList.add('col-current');
-      }
-      td.textContent = String(getValueFn(player.card));
-      tr.appendChild(td);
-    });
-
-    return tr;
   }
 
   // --- Turn Actions ---
+
   function handleRoll() {
     if (!game || game.rollsLeft <= 0 || isRollingAnimation) return;
 
@@ -437,7 +585,6 @@
       return;
     }
 
-    // Roll animation (300 ms)
     isRollingAnimation = true;
     btnRoll.disabled = true;
 
@@ -447,8 +594,11 @@
     const interval = setInterval(() => {
       dieButtons.forEach(btn => {
         const rand = Math.floor(Math.random() * 6) + 1;
-        const face = btn.querySelector('.die-face');
-        if (face) face.outerHTML = getDieSvg(rand);
+        const activePips = window.YahtzeeUI.pipLayout(rand);
+        const pips = btn.querySelectorAll('.pip');
+        pips.forEach((pip, p) => {
+          pip.className = activePips.includes(p) ? 'pip pip-black' : 'pip pip-empty';
+        });
       });
     }, 60);
 
@@ -463,7 +613,13 @@
   }
 
   function handleScoreCategory(catId) {
-    if (!game || game.rollsLeft === 3 || isRollingAnimation) return;
+    const curGame = isOnlineMode ? (onlineView && onlineView.game) : game;
+    if (!curGame || curGame.rollsLeft === 3 || isRollingAnimation) return;
+
+    if (isOnlineMode) {
+      if (onOnlineAction) onOnlineAction({ type: 'score', category: catId });
+      return;
+    }
 
     const player = game.players[game.current];
     const isYahtzee = window.YahtzeeScore.scoreCategory('yahtzee', game.dice) === 50;
@@ -472,7 +628,7 @@
     window.YahtzeeGame.score(game, catId);
 
     if (isExtraBonus) {
-      statusMessageEl.textContent = `🎉 Extra Yahtzee Bonus: +100 points for ${player.name}!`;
+      statusMessageEl.textContent = `Extra Yahtzee Bonus: +100 points for ${player.name}!`;
     } else {
       statusMessageEl.textContent = '';
     }
@@ -482,12 +638,14 @@
       renderEndScreen();
       showScreen('end');
     } else {
+      displayedPlayerIndex = game.current;
       saveCurrentGameState();
       renderGame();
     }
   }
 
   // --- End Screen Logic ---
+
   function renderEndScreen() {
     const curGame = isOnlineMode ? (onlineView && onlineView.game) : game;
     if (!curGame) return;
@@ -527,15 +685,14 @@
     winnerBanner.appendChild(textEl);
     winnerBanner.appendChild(subTextEl);
 
-    // Standings Table (sorted descending by total)
+    // Standings Table
     const sorted = [...playersWithTotals].sort((a, b) => b.totals.total - a.totals.total);
     standingsBody.innerHTML = '';
 
     sorted.forEach((item, index) => {
       const tr = document.createElement('tr');
-
       const isWinner = item.totals.total === maxScore;
-      const rankText = isWinner ? `🏆 1` : String(index + 1);
+      const rankText = isWinner ? '🏆 1' : String(index + 1);
 
       tr.innerHTML = `
         <td>${rankText}</td>
@@ -551,6 +708,7 @@
   }
 
   // --- Event Listeners Setup ---
+
   function setupEventListeners() {
     // Add Player button
     btnAddPlayer.addEventListener('click', () => {
@@ -573,6 +731,8 @@
 
       safeSetStorage(STORAGE_KEYS.LAST_NAMES, finalNames);
       game = window.YahtzeeGame.newGame(finalNames);
+      displayedPlayerIndex = 0;
+      lastTurnSeen = 0;
       saveCurrentGameState();
       showScreen('game');
       renderGame();
@@ -583,6 +743,8 @@
       const saved = safeGetStorage(STORAGE_KEYS.SAVED_GAME);
       if (saved && !window.YahtzeeGame.isOver(saved)) {
         game = saved;
+        displayedPlayerIndex = game.current;
+        lastTurnSeen = game.current;
         showScreen('game');
         renderGame();
       }
@@ -604,8 +766,100 @@
       }
     });
 
-    // Quit / Leave Game Button during game
+    // Hint Button
+    btnHint.addEventListener('click', () => {
+      const curGame = isOnlineMode ? (onlineView && onlineView.game) : game;
+      if (!curGame || isRollingAnimation) return;
+
+      if (curGame.rollsLeft === 3) {
+        rollInstructionEl.textContent = 'Roll dice first to get a hint!';
+        return;
+      }
+
+      const activePlayer = curGame.players[curGame.current];
+      const openCats = window.YahtzeeScore.CATEGORIES.filter(cat => activePlayer.card[cat] === undefined);
+      if (openCats.length === 0) return;
+
+      let bestCat = openCats[0];
+      let bestScore = -1;
+      for (const cat of openCats) {
+        const score = window.YahtzeeScore.scoreCategory(cat, curGame.dice);
+        if (score > bestScore) {
+          bestScore = score;
+          bestCat = cat;
+        }
+      }
+
+      // If viewing another card, switch back to current player's card to show the hint
+      if (displayedPlayerIndex !== curGame.current) {
+        displayedPlayerIndex = curGame.current;
+        renderGame();
+      }
+
+      const targetCell = boardLeftColumn.querySelector(`[data-category="${bestCat}"]`) ||
+                         boardRightColumn.querySelector(`[data-category="${bestCat}"]`);
+      if (targetCell) {
+        targetCell.classList.add('hint-pulse');
+        setTimeout(() => targetCell.classList.remove('hint-pulse'), 1200);
+      }
+      const tileLabel = window.YahtzeeUI.TILES[bestCat].label;
+      rollInstructionEl.textContent = `Hint: ${tileLabel} scores ${bestScore}`;
+    });
+
+    // Rules Button in Bottom Bar
+    btnRules.addEventListener('click', () => {
+      if (rulesDialog.showModal) rulesDialog.showModal();
+      else rulesDialog.hidden = false;
+    });
+
+    // Gear Menu Button in Top Bar
+    btnGameMenu.addEventListener('click', () => {
+      if (gearMenuDialog.showModal) gearMenuDialog.showModal();
+      else gearMenuDialog.hidden = false;
+    });
+
+    // Rules inside Gear Menu
+    btnMenuRules.addEventListener('click', () => {
+      if (gearMenuDialog.close) gearMenuDialog.close();
+      else gearMenuDialog.hidden = true;
+      if (rulesDialog.showModal) rulesDialog.showModal();
+      else rulesDialog.hidden = false;
+    });
+
+    // Close buttons for Gear Menu
+    btnCloseMenu.addEventListener('click', () => {
+      if (gearMenuDialog.close) gearMenuDialog.close();
+      else gearMenuDialog.hidden = true;
+    });
+
+    gearMenuDialog.addEventListener('click', (e) => {
+      if (e.target === gearMenuDialog) {
+        if (gearMenuDialog.close) gearMenuDialog.close();
+        else gearMenuDialog.hidden = true;
+      }
+    });
+
+    // Close buttons for Rules Dialog
+    btnCloseRules.addEventListener('click', () => {
+      if (rulesDialog.close) rulesDialog.close();
+      else rulesDialog.hidden = true;
+    });
+    btnCloseRulesBottom.addEventListener('click', () => {
+      if (rulesDialog.close) rulesDialog.close();
+      else rulesDialog.hidden = true;
+    });
+    rulesDialog.addEventListener('click', (e) => {
+      if (e.target === rulesDialog) {
+        if (rulesDialog.close) rulesDialog.close();
+        else rulesDialog.hidden = true;
+      }
+    });
+
+    // Quit / Leave Game Button in Gear Menu
     btnQuitGame.addEventListener('click', () => {
+      if (gearMenuDialog.close) gearMenuDialog.close();
+      else gearMenuDialog.hidden = true;
+
       if (isOnlineMode) {
         const ok = confirm('Leave this online room?');
         if (ok && onOnlineLeave) {
@@ -625,6 +879,8 @@
       if (!game) return;
       const names = game.players.map(p => p.name);
       game = window.YahtzeeGame.newGame(names);
+      displayedPlayerIndex = 0;
+      lastTurnSeen = 0;
       saveCurrentGameState();
       showScreen('game');
       renderGame();
@@ -648,11 +904,9 @@
   // --- Initialize App ---
   function init() {
     setupEventListeners();
-
     checkResumeOption();
     const rememberedNames = getRememberedPlayerNames();
     renderPlayerInputs(rememberedNames);
-
     showScreen('start');
   }
 
@@ -677,6 +931,8 @@
       onlineView = null;
       onOnlineAction = null;
       onOnlineLeave = null;
+      displayedPlayerIndex = null;
+      lastTurnSeen = null;
       btnQuitGame.textContent = 'New Game';
     },
     showStatusMessage(msg) {

@@ -89,8 +89,22 @@ function readJsonBody(req) {
 function createServer({ store, staticDir }) {
   const normalizedStaticDir = path.resolve(staticDir);
 
-  const server = http.createServer(async (req, res) => {
-    const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  const server = http.createServer((req, res) => {
+    handle(req, res).catch(() => {
+      if (!res.headersSent) sendJson(res, 500, { error: 'Internal error' });
+      else res.end();
+    });
+  });
+
+  async function handle(req, res) {
+    let parsedUrl;
+    try {
+      parsedUrl = new URL(req.url, 'http://localhost');
+      decodeURIComponent(parsedUrl.pathname);
+    } catch {
+      sendJson(res, 400, { error: 'Bad request' });
+      return;
+    }
     const pathname = parsedUrl.pathname;
     const method = req.method;
 
@@ -276,7 +290,7 @@ function createServer({ store, staticDir }) {
       });
       stream.pipe(res);
     });
-  });
+  }
 
   return server;
 }

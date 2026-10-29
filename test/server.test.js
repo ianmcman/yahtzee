@@ -80,3 +80,11 @@ test('/healthz answers ok', async () => {
   const { base, close } = await boot();
   try { assert.equal((await fetch(base + '/healthz')).status, 200); } finally { await close(); }
 });
+test('malformed percent-encoding returns 400 and does not crash the server', async () => {
+  const { base, close } = await boot();
+  try {
+    assert.equal((await fetch(`${base}/api/rooms/%/events?token=x`)).status, 400);
+    assert.equal((await fetch(`${base}/%E0%A4%A`)).status, 400);
+    assert.equal((await fetch(`${base}/healthz`)).status, 200);
+  } finally { await close(); }
+});

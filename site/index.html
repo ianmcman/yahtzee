@@ -107,7 +107,7 @@
           <p id="copy-status-msg" class="copy-status-msg" aria-live="polite"></p>
 
           <div class="lobby-players-section">
-            <h3 class="setup-heading" style="font-size: 1.05rem;">Players (<span id="lobby-player-count">1</span>/4)</h3>
+            <h3 class="setup-heading lobby-subheading">Players (<span id="lobby-player-count">1</span>/4)</h3>
             <ul id="lobby-player-list" class="lobby-player-list" aria-label="List of players in room">
               <!-- Players injected dynamically -->
             </ul>
@@ -128,52 +128,112 @@
       </section>
 
       <!-- Screen 2: Game Screen -->
-      <section id="screen-game" class="screen" aria-labelledby="game-status-announcement" hidden>
+      <section id="screen-game" class="screen screen-game-themed" aria-label="Yahtzee Game" hidden>
         <div id="reconnecting-badge" class="reconnecting-badge" role="status" hidden>Reconnecting…</div>
 
-        <div class="game-header-bar">
-          <div class="turn-status">
-            <span class="turn-badge">Turn</span>
-            <h2 id="current-player-name" class="current-player-heading">Player</h2>
+        <!-- Top bar: dark navy strip -->
+        <header class="game-top-bar" role="toolbar" aria-label="Game controls and player badges">
+          <button type="button" id="btn-game-menu" class="btn-top-gear" aria-label="Game menu" aria-haspopup="dialog">
+            <svg class="icon-gear" viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">
+              <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 0 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+            </svg>
+          </button>
+
+          <div id="top-bar-players" class="top-bar-players" role="region" aria-label="Player cards">
+            <!-- Player badges injected by app.js -->
           </div>
-          <div class="game-actions-bar">
-            <button type="button" id="btn-quit-game" class="btn btn-outline btn-small">New Game</button>
+        </header>
+
+        <span id="current-player-name" class="sr-only">Player</span>
+        <div id="status-message" class="sr-only" role="status" aria-live="polite"></div>
+
+        <!-- Board Area (Wooden frame & Green felt) -->
+        <div class="game-board-area">
+          <div class="board-frame">
+            <div id="read-only-banner" class="read-only-banner" hidden aria-live="polite"></div>
+            <div class="felt-panel" role="region" aria-label="Scorecard">
+              <div id="board-left-column" class="felt-column felt-column-left">
+                <!-- Upper categories + bonus row injected by app.js -->
+              </div>
+              <div id="board-right-column" class="felt-column felt-column-right">
+                <!-- Lower categories injected by app.js -->
+              </div>
+            </div>
           </div>
         </div>
 
-        <div id="status-message" class="status-message" role="status" aria-live="polite"></div>
-
-        <!-- Dice & Rolling Area -->
-        <div class="dice-section" aria-label="Dice controls">
-          <div id="dice-container" class="dice-container" role="group" aria-label="Five Yahtzee dice">
-            <!-- 5 dice buttons injected by app.js -->
-          </div>
-
-          <div class="roll-controls">
-            <button type="button" id="btn-roll" class="btn btn-primary btn-roll">
-              Roll (<span id="rolls-left-count">3</span> left)
-            </button>
-            <p id="roll-instruction" class="roll-instruction">Roll to start your turn.</p>
+        <!-- Dice Tray -->
+        <div class="tray-section" aria-label="Dice tray">
+          <div id="dice-container" class="dice-slots" role="group" aria-label="Five dice slots">
+            <!-- 5 slots injected by app.js -->
           </div>
         </div>
 
-        <!-- Scorecard Area -->
-        <div class="scorecard-section" aria-label="Scorecard">
-          <div class="scorecard-wrapper">
-            <table id="scorecard-table" class="scorecard-table">
-              <caption class="sr-only">Yahtzee Scorecard</caption>
-              <thead>
-                <tr id="scorecard-head-row">
-                  <th scope="col" class="col-category">Category</th>
-                  <!-- Player column headers injected by app.js -->
-                </tr>
-              </thead>
-              <tbody id="scorecard-body">
-                <!-- Scorecard rows injected by app.js -->
-              </tbody>
-            </table>
-          </div>
+        <!-- Roll Button Area -->
+        <div class="roll-section" aria-label="Roll controls">
+          <button type="button" id="btn-roll" class="btn-roll" aria-label="Roll dice">
+            <span class="roll-btn-label">Roll</span>
+            <span id="roll-chips" class="roll-chips"></span>
+          </button>
+          <p id="roll-instruction" class="roll-status-line" role="status" aria-live="polite">Roll to start your turn.</p>
         </div>
+
+        <!-- Bottom Bar: Dark wood strip with Hint and Rules -->
+        <nav class="bottom-bar" aria-label="Game tools">
+          <button type="button" id="btn-hint" class="bottom-bar-btn" aria-label="Hint">
+            <svg class="bottom-bar-icon" viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">
+              <path d="M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7zm2.85 11.1l-.85.6V16h-4v-2.3l-.85-.6A4.997 4.997 0 0 1 7 9c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.63-.8 3.16-2.15 4.1z"/>
+            </svg>
+            <span class="bottom-bar-text">Hint</span>
+          </button>
+          <button type="button" id="btn-rules" class="bottom-bar-btn" aria-label="Rules">
+            <svg class="bottom-bar-icon" viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">
+              <path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4zm12 16H6v-2h12v2zm0-4H6v-2h12v2zm0-4h-5V4h5v8z"/>
+            </svg>
+            <span class="bottom-bar-text">Rules</span>
+          </button>
+        </nav>
+
+        <!-- Dialog: Game Menu -->
+        <dialog id="gear-menu-dialog" class="game-dialog gear-dialog" aria-labelledby="gear-dialog-title">
+          <div class="dialog-card">
+            <h3 id="gear-dialog-title" class="dialog-heading">Menu</h3>
+            <div class="dialog-body-btns">
+              <button type="button" id="btn-quit-game" class="btn btn-secondary btn-large">New Game</button>
+              <button type="button" id="btn-menu-rules" class="btn btn-secondary btn-large">Rules</button>
+              <button type="button" id="btn-close-menu" class="btn btn-outline btn-large">Close</button>
+            </div>
+          </div>
+        </dialog>
+
+        <!-- Dialog: Rules Summary -->
+        <dialog id="rules-dialog" class="game-dialog rules-dialog" aria-labelledby="rules-dialog-title">
+          <div class="dialog-card rules-card">
+            <div class="dialog-header-row">
+              <h3 id="rules-dialog-title" class="dialog-heading">Rules & Scoring</h3>
+              <button type="button" id="btn-close-rules" class="btn-close-dialog" aria-label="Close rules">✕</button>
+            </div>
+            <div class="rules-content">
+              <h4>Upper Section</h4>
+              <p>Scores the sum of matching dice for that face (1s through 6s).</p>
+              <p class="rules-highlight"><strong>Bonus:</strong> If upper sum is 63 or more, score <strong>+35 bonus</strong>.</p>
+              <h4>Lower Section</h4>
+              <ul class="rules-list">
+                <li><strong>3 of a Kind:</strong> At least 3 matching dice. Scores sum of all dice.</li>
+                <li><strong>4 of a Kind:</strong> At least 4 matching dice. Scores sum of all dice.</li>
+                <li><strong>Full House:</strong> 3 of one face and 2 of another. Scores <strong>25 points</strong>.</li>
+                <li><strong>Small Straight:</strong> 4 sequential dice. Scores <strong>30 points</strong>.</li>
+                <li><strong>Large Straight:</strong> 5 sequential dice. Scores <strong>40 points</strong>.</li>
+                <li><strong>Yahtzee:</strong> 5 of a kind. Scores <strong>50 points</strong>.</li>
+                <li><strong>Chance:</strong> Any combination. Scores sum of all dice.</li>
+                <li><strong>Extra Yahtzee:</strong> <strong>+100 bonus</strong> for each additional 5 of a kind after scoring 50 in Yahtzee.</li>
+              </ul>
+            </div>
+            <div class="dialog-footer">
+              <button type="button" id="btn-close-rules-bottom" class="btn btn-primary btn-large">Got It</button>
+            </div>
+          </div>
+        </dialog>
       </section>
 
       <!-- Screen 3: End Screen -->
@@ -215,6 +275,7 @@
 
   <script src="score.js"></script>
   <script src="game.js"></script>
+  <script src="ui-model.js"></script>
   <script src="app.js"></script>
   <script src="online.js"></script>
 </body>
