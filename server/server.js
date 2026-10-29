@@ -102,15 +102,14 @@ function isJson(req) {
   return /^application\/json\b/i.test(req.headers['content-type'] || '');
 }
 
-function isPrivate(addr) {
-  return /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|::1$|::ffff:(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.))/.test(addr || '');
-}
-
-// Behind SWAG the socket peer is the proxy, so trust X-Real-IP only from private peers.
-function clientIp(req) {
-  const peer = req.socket.remoteAddress || '';
-  const fwd = req.headers['x-real-ip'];
-  return isPrivate(peer) && typeof fwd === 'string' && fwd ? fwd.trim() : peer;
+// Behind a reverse proxy the socket peer is the proxy. Trust X-Real-IP only from configured proxy addresses.
+function makeClientIp(trustedProxies) {
+  const trusted = new Set(trustedProxies);
+  return req => {
+    const peer = (req.socket.remoteAddress || '').replace(/^::ffff:/, '');
+    const fwd = req.headers['x-real-ip'];
+    return trusted.has(peer) && typeof fwd === 'string' && fwd ? fwd.trim() : peer;
+  };
 }
 
 function createLimiter(max, windowMs) {
@@ -126,7 +125,8 @@ function createLimiter(max, windowMs) {
   };
 }
 
-function createServer({ store, staticDir, accounts = null, stats = null }) {
+function createServer({ store, staticDir, accounts = null, stats = null, trustedProxies = [] }) {
+  const clientIp = makeClientIp(trustedProxies);
   const registerLimit = createLimiter(5, 60 * 60e3);
   const loginLimit = createLimiter(20, 15 * 60e3);
 
@@ -134,6 +134,14 @@ function createServer({ store, staticDir, accounts = null, stats = null }) {
     if (!accounts) return null;
     if (req.method === 'POST' && !isJson(req)) return null;
     return accounts.userForSession(parseCookies(req).sid);
+  }
+
+  function rejectTakenGuestName(user, name) {
+    if (!user && accounts && accounts.exists(name)) {
+      const err = new Error('That name belongs to a registered player. Sign in or pick another name.');
+      err.status = 409;
+      throw err;
+    }
   }
 
   function setSession(req, res, sid, maxAge) {
@@ -203,7 +211,7 @@ function createServer({ store, staticDir, accounts = null, stats = null }) {
           }
           const r = pathname === '/api/register'
             ? accounts.register(body.username, body.password)
-            : accounts.login(body.username, body.password);
+            : accounts.login(body.username, body.password, { ip });
           setSession(req, res, r.sid, 30 * 86400);
           sendJson(res, pathname === '/api/register' ? 201 : 200, { username: r.user.username });
         } catch (err) {
@@ -234,6 +242,7 @@ function createServer({ store, staticDir, accounts = null, stats = null }) {
         try {
           const body = await readJsonBody(req);
           const user = sessionUser(req);
+          rejectTakenGuestName(user, body.name);
           const result = store.create(user ? user.username : body.name, user ? user.id : null);
           sendJson(res, 201, result);
         } catch (err) {
@@ -249,6 +258,7 @@ function createServer({ store, staticDir, accounts = null, stats = null }) {
           const code = decodeURIComponent(joinMatch[1]);
           const body = await readJsonBody(req);
           const user = sessionUser(req);
+          rejectTakenGuestName(user, body.name);
           const result = store.join(code, user ? user.username : body.name, user ? user.id : null);
           sendJson(res, 200, result);
         } catch (err) {
@@ -432,7 +442,8 @@ if (require.main === module) {
   }
   const store = createRoomStore({ onFinish });
   const staticDir = path.join(__dirname, '../site');
-  const server = createServer({ store, staticDir, accounts, stats });
+  const trustedProxies = (process.env.TRUSTED_PROXY || '').split(',').map(x => x.trim()).filter(Boolean);
+  const server = createServer({ store, staticDir, accounts, stats, trustedProxies });
   const PORT = parseInt(process.env.PORT, 10) || 8080;
 
   const sweepInterval = setInterval(() => {

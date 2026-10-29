@@ -89,12 +89,12 @@ function createAccounts({ db, now = () => Date.now() }) {
     return { user: { id, username }, sid: newSession(id) };
   }
 
-  function login(username, password) {
-    const key = typeof username === 'string' ? username.toLowerCase() : '';
+  function login(username, password, { ip = '' } = {}) {
+    const key = `${ip}|${typeof username === 'string' ? username.toLowerCase() : ''}`;
     if (recentFailures(key).length >= LOCK_FAILS) {
       throw httpError(429, 'Too many failed attempts. Try again later.');
     }
-    const row = typeof username === 'string' && typeof password === 'string' ? byName.get(key) : null;
+    const row = typeof username === 'string' && typeof password === 'string' ? byName.get(username.toLowerCase()) : null;
     const ok = row ? verifyPassword(password, row.pw) : (verifyPassword('x', dummy), false);
     if (!ok) {
       recentFailures(key).push(now());
@@ -125,10 +125,14 @@ function createAccounts({ db, now = () => Date.now() }) {
     if (!row) throw httpError(404, 'No such user');
     setPw.run(hashPassword(password), row.id);
     delUserSessions.run(row.id);
-    failures.delete(username.toLowerCase());
+    for (const k of failures.keys()) if (k.endsWith('|' + username.toLowerCase())) failures.delete(k);
   }
 
-  return { register, login, userForSession, logout, setPassword };
+  function exists(name) {
+    return typeof name === 'string' && Boolean(byName.get(name.trim().toLowerCase()));
+  }
+
+  return { register, login, userForSession, logout, setPassword, exists };
 }
 
 module.exports = { createAccounts };

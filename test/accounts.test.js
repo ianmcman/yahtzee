@@ -70,3 +70,16 @@ test('session ids are unique', () => {
   a.register('Ian', 'password1');
   assert.notEqual(a.login('Ian', 'password1').sid, a.login('Ian', 'password1').sid);
 });
+test('lockout is per username and client address, so a stranger cannot lock you out', () => {
+  let t = 1e12; const { a } = mk({ now: () => t });
+  a.register('Ian', 'password1');
+  for (let i = 0; i < 5; i++) assert.throws(() => a.login('Ian', 'bad-pass-' + i, { ip: '203.0.113.9' }), { status: 401 });
+  assert.throws(() => a.login('Ian', 'password1', { ip: '203.0.113.9' }), { status: 429 });
+  assert.equal(a.login('Ian', 'password1', { ip: '198.51.100.7' }).user.username, 'Ian');
+});
+test('exists checks usernames ignoring case and surrounding spaces', () => {
+  const { a } = mk();
+  a.register('Ann', 'password1');
+  assert.equal(a.exists('ann'), true); assert.equal(a.exists('  ANN '), true);
+  assert.equal(a.exists('Bob'), false); assert.equal(a.exists(null), false);
+});

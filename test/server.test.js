@@ -111,11 +111,11 @@ test('serves the manifest as application/manifest+json and the service worker un
 const { DatabaseSync } = require('node:sqlite');
 const { createAccounts } = require('../server/accounts.js');
 const { createStats } = require('../server/stats.js');
-async function bootAcc() {
+async function bootAcc(extra = {}) {
   const db = new DatabaseSync(':memory:');
   const accounts = createAccounts({ db }); const stats = createStats({ db });
   const store = createRoomStore({ onFinish: g => stats.record(g) });
-  const srv = createServer({ store, accounts, stats, staticDir: require('node:path').join(__dirname, '../site') });
+  const srv = createServer({ store, accounts, stats, ...extra, staticDir: require('node:path').join(__dirname, '../site') });
   await new Promise(r => srv.listen(0, '127.0.0.1', r));
   const base = `http://127.0.0.1:${srv.address().port}`;
   const post = (path, body, cookie, token) => fetch(base + path, { method: 'POST',
@@ -208,5 +208,29 @@ test('without accounts configured: /api/me says disabled and auth routes are 404
     assert.deepEqual(await (await fetch(base + '/api/me')).json(), { user: null, enabled: false });
     assert.equal((await j('/api/login', { username: 'a', password: 'b' })).status, 404);
     assert.equal((await fetch(base + '/api/leaderboard')).status, 404);
+  } finally { await close(); }
+});
+
+test('X-Real-IP is ignored unless the peer is a trusted proxy', async () => {
+  const hit = (post, ip) => fetch(post.base + '/api/register', { method: 'POST', headers: { 'content-type': 'application/json', 'x-real-ip': ip }, body: JSON.stringify({ username: 'x', password: 'short' }) }).then(r => r.status);
+  let t = await bootAcc();
+  try {
+    const codes = []; for (let i = 0; i < 6; i++) codes.push(await hit(t, '203.0.113.' + i));
+    assert.equal(codes[5], 429, 'spoofed headers must not create fresh buckets');
+  } finally { await t.close(); }
+  t = await bootAcc({ trustedProxies: ['127.0.0.1'] });
+  try {
+    const codes = []; for (let i = 0; i < 6; i++) codes.push(await hit(t, '203.0.113.' + i));
+    assert.ok(codes.every(c => c === 400), 'each real client gets its own bucket behind a trusted proxy');
+  } finally { await t.close(); }
+});
+test('a guest cannot take a registered username', async () => {
+  const { post, close } = await bootAcc();
+  try {
+    await post('/api/register', { username: 'Ann', password: 'password1' });
+    assert.equal((await post('/api/rooms', { name: ' ann ' })).status, 409);
+    const { code } = await (await post('/api/rooms', { name: 'Guesty' })).json();
+    assert.equal((await post(`/api/rooms/${code}/join`, { name: 'ANN' })).status, 409);
+    assert.equal((await post(`/api/rooms/${code}/join`, { name: 'Other' })).status, 200);
   } finally { await close(); }
 });
