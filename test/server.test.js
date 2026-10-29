@@ -181,8 +181,11 @@ test('a session cookie is ignored on requests without a JSON content type', asyn
     const c = 'sid=' + sid(await post('/api/register', { username: 'Ann', password: 'password1' }));
     const r = await fetch(base + '/api/rooms', { method: 'POST', headers: { cookie: c, 'content-type': 'text/plain' }, body: JSON.stringify({ name: 'Eve' }) });
     const { code, token } = await r.json();
-    const v = await (await fetch(`${base}/api/rooms/${code}/events?token=${token}`, { signal: AbortSignal.timeout(500) }).catch(() => null))?.body;
-    assert.ok(code);
+    const ac = new AbortController();
+    const es = await fetch(`${base}/api/rooms/${code}/events?token=${token}`, { signal: ac.signal });
+    const ev = await nextEvent(es.body.getReader(), new TextDecoder());
+    assert.equal(ev.players[0].name, 'Eve');
+    ac.abort();
   } finally { await close(); }
 });
 test('leaderboard and profile endpoints', async () => {
