@@ -6,6 +6,7 @@ COPY package.json ./
 COPY site ./site
 COPY server ./server
 
+ENV NODE_NO_WARNINGS=1 DATA_DIR=/data
 USER node
 
 EXPOSE 8080

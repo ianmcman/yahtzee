@@ -24,6 +24,16 @@
       <section id="screen-start" class="screen" aria-labelledby="start-title">
         <h2 id="start-title" class="sr-only">Game Setup</h2>
 
+        <div id="account-card" class="setup-card account-card" hidden>
+          <p id="account-status" class="account-status"></p>
+          <div class="account-actions">
+            <button type="button" id="btn-account-signin" class="btn btn-secondary">Sign in / Register</button>
+            <button type="button" id="btn-account-profile" class="btn btn-secondary" hidden>My profile</button>
+            <button type="button" id="btn-account-board" class="btn btn-secondary">Leaderboard</button>
+            <button type="button" id="btn-account-signout" class="btn btn-outline" hidden>Sign out</button>
+          </div>
+        </div>
+
         <div id="resume-banner" class="resume-card" hidden>
           <div class="resume-info">
             <h3 class="resume-title">Game In Progress</h3>
@@ -108,6 +118,7 @@
         <div class="setup-card lobby-card">
           <div class="lobby-header">
             <h2 id="lobby-title" class="setup-heading">Room: <span id="lobby-code-display" class="room-code-badge"></span></h2>
+            <p id="lobby-ranked" class="setup-subheading" hidden>Ranked: this game counts toward the leaderboard.</p>
             <button type="button" id="btn-copy-invite" class="btn btn-secondary btn-small">Copy Invite Link</button>
           </div>
           <p id="copy-status-msg" class="copy-status-msg" aria-live="polite"></p>
@@ -246,6 +257,7 @@
       <section id="screen-end" class="screen" aria-labelledby="end-title" hidden>
         <div class="end-card">
           <h2 id="end-title" class="end-title">Game Over!</h2>
+          <p id="end-ranked-note" class="setup-subheading" hidden>Ranked game recorded on the leaderboard.</p>
           <div id="winner-banner" class="winner-banner" role="status">
             <!-- Winner announcement -->
           </div>
@@ -276,6 +288,70 @@
           </div>
         </div>
       </section>
+
+      <!-- Accounts, leaderboard, profile (shown by account.js) -->
+      <section id="screen-account" class="screen" aria-labelledby="account-title" hidden>
+        <div class="setup-card">
+          <div class="screen-nav-bar"><button type="button" id="btn-account-back" class="btn btn-outline btn-small">← Back</button></div>
+          <h2 id="account-title" class="setup-heading">Account</h2>
+          <div class="online-actions-grid">
+            <button type="button" id="tab-signin" class="btn btn-primary" aria-pressed="true">Sign in</button>
+            <button type="button" id="tab-register" class="btn btn-secondary" aria-pressed="false">Register</button>
+          </div>
+          <form id="account-form" class="setup-form" autocomplete="on">
+            <div class="form-group">
+              <label for="account-username" class="form-label">Username</label>
+              <input type="text" id="account-username" class="form-input" maxlength="20" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+            </div>
+            <div class="form-group">
+              <label for="account-password" class="form-label">Password</label>
+              <input type="password" id="account-password" class="form-input" maxlength="128" autocomplete="current-password" required>
+            </div>
+            <p id="account-hint" class="setup-subheading" hidden>3 to 20 letters, digits, _ or -. Password at least 8 characters. There is no email, so a lost password has to be reset by the site owner.</p>
+            <p id="account-error" class="error-msg" role="alert" hidden></p>
+            <div class="setup-submit"><button type="submit" id="btn-account-submit" class="btn btn-primary btn-large">Sign in</button></div>
+          </form>
+        </div>
+      </section>
+
+      <section id="screen-board" class="screen" aria-labelledby="board-title" hidden>
+        <div class="setup-card">
+          <div class="screen-nav-bar"><button type="button" id="btn-board-back" class="btn btn-outline btn-small">← Back</button></div>
+          <h2 id="board-title" class="setup-heading">Leaderboard</h2>
+          <p class="setup-subheading">Ranked games only: online, with at least two signed-in players.</p>
+          <div id="board-tabs" class="online-actions-grid" role="group" aria-label="Board">
+            <button type="button" class="btn btn-primary" data-board="wins" aria-pressed="true">Wins</button>
+            <button type="button" class="btn btn-secondary" data-board="winrate" aria-pressed="false">Win rate</button>
+            <button type="button" class="btn btn-secondary" data-board="best" aria-pressed="false">Best score</button>
+            <button type="button" class="btn btn-secondary" data-board="yahtzees" aria-pressed="false">Yahtzees</button>
+          </div>
+          <div id="period-tabs" class="online-actions-grid" role="group" aria-label="Period">
+            <button type="button" class="btn btn-primary" data-period="all" aria-pressed="true">All time</button>
+            <button type="button" class="btn btn-secondary" data-period="week" aria-pressed="false">This week</button>
+          </div>
+          <p id="board-error" class="error-msg" role="alert" hidden></p>
+          <table class="standings-table">
+            <thead><tr><th scope="col">#</th><th scope="col">Player</th><th scope="col" id="board-value-head">Wins</th><th scope="col">Games</th></tr></thead>
+            <tbody id="board-body"></tbody>
+          </table>
+          <p id="board-empty" class="setup-subheading" hidden>No ranked games yet.</p>
+        </div>
+      </section>
+
+      <section id="screen-profile" class="screen" aria-labelledby="profile-title" hidden>
+        <div class="setup-card">
+          <div class="screen-nav-bar"><button type="button" id="btn-profile-back" class="btn btn-outline btn-small">← Back</button></div>
+          <h2 id="profile-title" class="setup-heading">Profile</h2>
+          <table class="standings-table">
+            <tbody id="profile-stats"></tbody>
+          </table>
+          <h3 class="standings-title">Recent games</h3>
+          <table class="standings-table">
+            <thead><tr><th scope="col">Result</th><th scope="col">Score</th><th scope="col">Against</th></tr></thead>
+            <tbody id="profile-recent"></tbody>
+          </table>
+        </div>
+      </section>
     </main>
   </div>
 
@@ -284,6 +360,7 @@
   <script src="ui-model.js"></script>
   <script src="app.js"></script>
   <script src="online.js"></script>
+  <script src="account.js"></script>
   <script src="pwa.js"></script>
 </body>
 </html>

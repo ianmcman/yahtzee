@@ -1,5 +1,6 @@
 const crypto = require('node:crypto');
 const game = require('../site/game.js');
+const { totals } = require('../site/score.js');
 
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
@@ -27,6 +28,7 @@ function generateToken() {
 function createRoomStore(options = {}) {
   const rng = options.rng;
   const now = options.now || (() => Date.now());
+  const onFinish = options.onFinish;
 
   const rooms = new Map();
 
@@ -65,7 +67,7 @@ function createRoomStore(options = {}) {
     }
   }
 
-  function create(name) {
+  function create(name, userId = null) {
     const validName = cleanName(name);
     const code = generateCode();
     const token = generateToken();
@@ -74,7 +76,7 @@ function createRoomStore(options = {}) {
       code,
       phase: 'lobby',
       players: [
-        { name: validName, token }
+        { name: validName, token, userId }
       ],
       game: null,
       lastActivity: now(),
@@ -85,7 +87,7 @@ function createRoomStore(options = {}) {
     return { code, token };
   }
 
-  function join(code, name) {
+  function join(code, name, userId = null) {
     const room = getRoom(code);
     if (room.phase !== 'lobby') {
       throw httpError(409, 'Cannot join game in progress');
@@ -93,10 +95,13 @@ function createRoomStore(options = {}) {
     if (room.players.length >= 4) {
       throw httpError(409, 'Room is full');
     }
+    if (userId != null && room.players.some(p => p.userId === userId)) {
+      throw httpError(409, 'You are already in this room');
+    }
     const validName = cleanName(name);
     const token = generateToken();
 
-    room.players.push({ name: validName, token });
+    room.players.push({ name: validName, token, userId });
     room.lastActivity = now();
 
     notifySubscribers(room);
@@ -124,6 +129,31 @@ function createRoomStore(options = {}) {
     room.lastActivity = now();
 
     notifySubscribers(room);
+  }
+
+  function reportFinish(room) {
+    if (!onFinish || room.reported) return;
+    room.reported = true;
+    try {
+      onFinish({
+        endedAt: now(),
+        players: room.players.map((p, i) => {
+          const card = room.game.players[i].card;
+          return {
+            userId: p.userId,
+            name: p.name,
+            total: totals(card).total,
+            yahtzees: (card.yahtzee === 50 ? 1 : 0) + (card.yahtzeeBonus || 0),
+          };
+        }),
+      });
+    } catch (err) {
+      // Recording a result must never break the game itself
+    }
+  }
+
+  function isRanked(room) {
+    return new Set(room.players.filter(p => p.userId != null).map(p => p.userId)).size >= 2;
   }
 
   function act(code, token, action) {
@@ -161,6 +191,7 @@ function createRoomStore(options = {}) {
         game.score(room.game, action.category);
         if (game.isOver(room.game)) {
           room.phase = 'over';
+          reportFinish(room);
         }
       } else {
         throw new Error('Unknown action type');
@@ -183,6 +214,7 @@ function createRoomStore(options = {}) {
     return {
       code: room.code,
       phase: room.phase,
+      ranked: isRanked(room),
       players: room.players.map(p => ({ name: p.name })),
       you: playerIndex,
       host: playerIndex === 0,

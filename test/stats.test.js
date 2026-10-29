@@ -25,16 +25,16 @@ test('a ranked game updates wins, best score and yahtzees; ties count as wins fo
   assert.deepEqual(stats.record({ players: [P(a, 250, 1), P(b, 180)] }), { ranked: true });
   stats.record({ players: [P(a, 200), P(b, 200, 2)] });
   const wins = stats.leaderboard('wins', 'all');
-  assert.deepEqual(wins.map(r => [r.rank, r.username, r.value, r.games]), [[1, 'Ann', 2, 2], [1, 'Bob', 1, 2]].map(x => x));
+  assert.deepEqual(wins.map(r => [r.rank, r.username, r.value, r.games]), [[1, 'Ann', 2, 2], [2, 'Bob', 1, 2]]);
   assert.deepEqual(stats.leaderboard('best', 'all').map(r => [r.username, r.value]), [['Ann', 250], ['Bob', 200]]);
   assert.deepEqual(stats.leaderboard('yahtzees', 'all').map(r => [r.username, r.value]), [['Bob', 2], ['Ann', 1]]);
 });
 test('rank is shared on equal values and the next rank skips', () => {
-  const { stats, u } = setup(); const a = u('Ann'), b = u('Bob'), c = u('Cy');
+  const { stats, u } = setup(); const a = u('Ann'), b = u('Bob'), c = u('Cyd');
   stats.record({ players: [P(a, 300), P(b, 200), P(c, 100)] });
   stats.record({ players: [P(b, 300), P(a, 200), P(c, 100)] });
   const w = stats.leaderboard('wins', 'all');
-  assert.deepEqual(w.map(r => [r.rank, r.username]), [[1, 'Ann'], [1, 'Bob'], [3, 'Cy']]);
+  assert.deepEqual(w.map(r => [r.rank, r.username]), [[1, 'Ann'], [1, 'Bob'], [3, 'Cyd']]);
 });
 test('win rate needs 5 games', () => {
   const { stats, u } = setup(); const a = u('Ann'), b = u('Bob');
@@ -49,7 +49,7 @@ test('the weekly board only counts games from the last 7 days', () => {
   stats.record({ players: [P(a, 300), P(b, 100)] });
   t += 8 * 864e5;
   stats.record({ players: [P(b, 300), P(a, 100)] });
-  assert.deepEqual(stats.leaderboard('wins', 'week').map(r => [r.username, r.value]), [['Bob', 1]]);
+  assert.deepEqual(stats.leaderboard('wins', 'week').map(r => [r.username, r.value, r.games]), [['Bob', 1, 1], ['Ann', 0, 1]]);
   assert.equal(stats.leaderboard('wins', 'all').length, 2);
 });
 test('leaderboard rejects unknown boards and periods and caps at 20 rows', () => {

@@ -197,11 +197,15 @@
       window.YahtzeeApp.showScreen('lobby');
       renderLobby(view);
     } else if (view.phase === 'playing' || view.phase === 'over') {
+      const note = document.getElementById('end-ranked-note');
+      if (note) note.hidden = !(view.ranked && view.phase === 'over');
       window.YahtzeeApp.enterOnlineMode(view, handleAction, () => leaveRoom());
     }
   }
 
   function renderLobby(view) {
+    const rankedEl = document.getElementById('lobby-ranked');
+    if (rankedEl) rankedEl.hidden = !view.ranked;
     lobbyCodeDisplay.textContent = view.code;
     lobbyPlayerCount.textContent = view.players.length;
 

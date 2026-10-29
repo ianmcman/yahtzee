@@ -1518,3 +1518,13 @@ h1, h2, h3, .setup-heading, .end-title, .standings-title, .lobby-subheading, .ac
 #screen-game .app-container { padding-top: 0; }
 button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 #screen-game button, #screen-game { user-select: none; -webkit-user-select: none; }
+
+/* === Accounts, leaderboard, profile === */
+.account-card { display: flex; flex-direction: column; gap: 10px; }
+.account-status { color: var(--mk-text); font-size: 0.85rem; }
+.account-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.account-actions .btn { flex: 1 1 auto; }
+#board-tabs, #period-tabs { grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); margin-bottom: 10px; }
+#screen-account .online-actions-grid { margin-bottom: 12px; }
+#screen-profile th { text-align: left; color: var(--mk-text-sub); font-weight: 400; }
+.account-card { margin-bottom: 16px; }

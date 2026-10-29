@@ -89,7 +89,58 @@ function readJsonBody(req) {
   });
 }
 
-function createServer({ store, staticDir }) {
+function parseCookies(req) {
+  const out = {};
+  for (const part of String(req.headers.cookie || '').split(';')) {
+    const i = part.indexOf('=');
+    if (i > 0) out[part.slice(0, i).trim()] = part.slice(i + 1).trim();
+  }
+  return out;
+}
+
+function isJson(req) {
+  return /^application\/json\b/i.test(req.headers['content-type'] || '');
+}
+
+function isPrivate(addr) {
+  return /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|::1$|::ffff:(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.))/.test(addr || '');
+}
+
+// Behind SWAG the socket peer is the proxy, so trust X-Real-IP only from private peers.
+function clientIp(req) {
+  const peer = req.socket.remoteAddress || '';
+  const fwd = req.headers['x-real-ip'];
+  return isPrivate(peer) && typeof fwd === 'string' && fwd ? fwd.trim() : peer;
+}
+
+function createLimiter(max, windowMs) {
+  const hits = new Map();
+  return key => {
+    const t = Date.now();
+    const list = (hits.get(key) || []).filter(x => x > t - windowMs);
+    if (list.length >= max) { hits.set(key, list); return false; }
+    list.push(t);
+    hits.set(key, list);
+    if (hits.size > 5000) for (const [k, v] of hits) if (!v.length || v[v.length - 1] <= t - windowMs) hits.delete(k);
+    return true;
+  };
+}
+
+function createServer({ store, staticDir, accounts = null, stats = null }) {
+  const registerLimit = createLimiter(5, 60 * 60e3);
+  const loginLimit = createLimiter(20, 15 * 60e3);
+
+  function sessionUser(req) {
+    if (!accounts) return null;
+    if (req.method === 'POST' && !isJson(req)) return null;
+    return accounts.userForSession(parseCookies(req).sid);
+  }
+
+  function setSession(req, res, sid, maxAge) {
+    const secure = req.headers['x-forwarded-proto'] === 'https' ? '; Secure' : '';
+    res.setHeader('Set-Cookie', `sid=${sid}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAge}${secure}`);
+  }
+
   const normalizedStaticDir = path.resolve(staticDir);
 
   const server = http.createServer((req, res) => {
@@ -119,11 +170,71 @@ function createServer({ store, staticDir }) {
 
     // API Routes
     if (pathname.startsWith('/api/')) {
+      // Accounts
+      if (pathname === '/api/me' && method === 'GET') {
+        const user = sessionUser(req);
+        sendJson(res, 200, { user: user ? { username: user.username } : null, enabled: Boolean(accounts) });
+        return;
+      }
+      if (accounts && method === 'POST' && (pathname === '/api/register' || pathname === '/api/login' || pathname === '/api/logout')) {
+        try {
+          if (!isJson(req)) {
+            const err = new Error('Content-Type must be application/json');
+            err.status = 415;
+            throw err;
+          }
+          const ip = clientIp(req);
+          if (pathname === '/api/register' && !registerLimit(ip)) {
+            const err = new Error('Too many sign-ups from this address. Try again later.');
+            err.status = 429;
+            throw err;
+          }
+          if (pathname === '/api/login' && !loginLimit(ip)) {
+            const err = new Error('Too many attempts. Try again later.');
+            err.status = 429;
+            throw err;
+          }
+          const body = await readJsonBody(req);
+          if (pathname === '/api/logout') {
+            accounts.logout(parseCookies(req).sid);
+            setSession(req, res, '', 0);
+            sendJson(res, 200, {});
+            return;
+          }
+          const r = pathname === '/api/register'
+            ? accounts.register(body.username, body.password)
+            : accounts.login(body.username, body.password);
+          setSession(req, res, r.sid, 30 * 86400);
+          sendJson(res, pathname === '/api/register' ? 201 : 200, { username: r.user.username });
+        } catch (err) {
+          sendJson(res, err.status || 500, { error: err.status ? err.message : 'Internal error' });
+        }
+        return;
+      }
+      if (stats && method === 'GET' && pathname === '/api/leaderboard') {
+        try {
+          const board = parsedUrl.searchParams.get('board') || 'wins';
+          const period = parsedUrl.searchParams.get('period') || 'all';
+          sendJson(res, 200, { rows: stats.leaderboard(board, period) });
+        } catch (err) {
+          sendJson(res, err.status || 500, { error: err.status ? err.message : 'Internal error' });
+        }
+        return;
+      }
+      const userMatch = pathname.match(/^\/api\/users\/([^/]+)$/);
+      if (stats && method === 'GET' && userMatch) {
+        const prof = stats.profile(decodeURIComponent(userMatch[1]));
+        if (prof) sendJson(res, 200, prof);
+        else sendJson(res, 404, { error: 'No such user' });
+        return;
+      }
+
       // POST /api/rooms
       if (method === 'POST' && pathname === '/api/rooms') {
         try {
           const body = await readJsonBody(req);
-          const result = store.create(body.name);
+          const user = sessionUser(req);
+          const result = store.create(user ? user.username : body.name, user ? user.id : null);
           sendJson(res, 201, result);
         } catch (err) {
           sendJson(res, err.status || 500, { error: err.message });
@@ -137,7 +248,8 @@ function createServer({ store, staticDir }) {
         try {
           const code = decodeURIComponent(joinMatch[1]);
           const body = await readJsonBody(req);
-          const result = store.join(code, body.name);
+          const user = sessionUser(req);
+          const result = store.join(code, user ? user.username : body.name, user ? user.id : null);
           sendJson(res, 200, result);
         } catch (err) {
           sendJson(res, err.status || 500, { error: err.message });
@@ -304,9 +416,23 @@ function createServer({ store, staticDir }) {
 
 if (require.main === module) {
   const { createRoomStore } = require('./rooms.js');
-  const store = createRoomStore();
+  const dataDir = process.env.DATA_DIR || path.join(__dirname, '../data');
+  let accounts = null;
+  let stats = null;
+  let onFinish;
+  try {
+    fs.mkdirSync(dataDir, { recursive: true });
+    const { DatabaseSync } = require('node:sqlite');
+    const db = new DatabaseSync(path.join(dataDir, 'yahtzee.db'));
+    accounts = require('./accounts.js').createAccounts({ db });
+    stats = require('./stats.js').createStats({ db });
+    onFinish = g => stats.record(g);
+  } catch (err) {
+    console.error('Accounts disabled:', err.message);
+  }
+  const store = createRoomStore({ onFinish });
   const staticDir = path.join(__dirname, '../site');
-  const server = createServer({ store, staticDir });
+  const server = createServer({ store, staticDir, accounts, stats });
   const PORT = parseInt(process.env.PORT, 10) || 8080;
 
   const sweepInterval = setInterval(() => {
