@@ -109,7 +109,6 @@ function createAccounts({ db, now = () => Date.now() }) {
       throw httpError(401, 'Wrong username or password');
     }
     failures.delete(key);
-    failures.delete(userKey);
     const ips = knownIps.get(lc) || new Set();
     ips.delete(ip);
     ips.add(ip);
@@ -140,6 +139,7 @@ function createAccounts({ db, now = () => Date.now() }) {
     setPw.run(hashPassword(password), row.id);
     delUserSessions.run(row.id);
     for (const k of failures.keys()) if (k.endsWith('|' + username.toLowerCase())) failures.delete(k);
+    knownIps.delete(username.toLowerCase());
   }
 
   function exists(name) {
